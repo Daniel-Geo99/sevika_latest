@@ -1,0 +1,157 @@
+/* Home.css - Light/Dark theme from Register page */
+
+/* ================= LIGHT MODE ================= */
+body.light {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #e8f1f8, #d6e6f2);
+    color: #0B1B32;
+    transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* ================= DARK MODE ================= */
+body.dark {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+    transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* ================= NAVBAR ================= */
+nav {
+    background: #0B1B32;
+    display: flex;
+    justify-content: center;
+    padding: 15px;
+}
+nav a {
+    color: #E5C9D7;
+    margin: 0 18px;
+    text-decoration: none;
+    font-weight: 600;
+}
+nav a:hover {
+    color: #C48CB3;
+}
+
+/* DARK MODE NAVBAR */
+body.dark nav {
+    background: #1e2a38;
+}
+body.dark nav a {
+    color: #ddd;
+}
+
+/* ================= HERO ================= */
+header {
+    text-align: center;
+    padding: 80px 20px;
+}
+header h1 {
+    font-family: 'Roboto Slab', serif;
+    font-size: 50px;
+    margin-bottom: 12px;
+}
+header p {
+    font-size: 18px;
+    color: inherit;
+}
+
+/* ================= SECTIONS ================= */
+section {
+    max-width: 1150px;
+    margin: 50px auto;
+    padding: 45px;
+    border-radius: 20px;
+}
+h2 {
+    text-align: center;
+    font-family: 'Roboto Slab', serif;
+    font-size: 32px;
+    margin-bottom: 25px;
+}
+
+/* ================= CARDS ================= */
+.card-container,
+.mv-container,
+.stats {
+    display: flex;
+    gap: 25px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.card,
+.mv-card,
+.stat {
+    border-radius: 20px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover,
+.mv-card:hover,
+.stat:hover {
+    transform: translateY(-10px);
+}
+
+/* Card backgrounds */
+body.light .card,
+body.light .mv-card,
+body.light .stat {
+    background: #edecef;
+    color: #0D1E4C;
+}
+body.dark .card,
+body.dark .mv-card,
+body.dark .stat {
+    background: #1e2a38;
+    color: white;
+}
+
+/* ================= CTA ================= */
+.cta {
+    background: linear-gradient(135deg,#0D1E4C,#0B1B32);
+    text-align: center;
+    padding: 60px 20px;
+    border-radius: 20px;
+    color: #fff;
+}
+.cta a {
+    display: inline-block;
+    margin-top: 25px;
+    padding: 12px 25px;
+    background: linear-gradient(135deg, #1565c0, #0d47a1);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+body.dark .cta a {
+    background: linear-gradient(135deg, #42a5f5, #1e88e5);
+}
+.cta a:hover {
+    opacity: 0.85;
+}
+
+/* ================= FOOTER ================= */
+footer {
+    background: #0B1B32;
+    color: #E5C9D7;
+    text-align: center;
+    padding: 22px;
+}
+
+/* ================= RESPONSIVE ================= */
+@media(max-width:768px){
+    section, header {
+        padding: 25px 15px;
+    }
+    .mv-container, .card-container, .stats {
+        flex-direction: column;
+        align-items: center;
+    }
+    .card, .mv-card, .stat {
+        width: 90%;
+    }
+}

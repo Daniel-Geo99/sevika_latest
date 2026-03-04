@@ -1,10 +1,52 @@
 // Import required modules
 const express = require("express");
+const cors = require("cors");
 const bcrypt = require("bcrypt");
 const db = require("./db");   // MySQL connection file
+require("dotenv").config();
+//frontend connection 
+
+const jwt = require("jsonwebtoken");
 
 // Initialize express app
 const app = express();
+
+/* =====================================================
+   JWT AUTH MIDDLEWARE
+===================================================== */
+
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
+
+    if (!token) {
+        return res.status(401).json({ message: "Access Denied" });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ message: "Invalid or Expired Token" });
+        }
+
+        req.user = user;
+        next();
+    });
+}
+
+function authorizeRole(...roles) {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({ message: "Forbidden: Access not allowed" });
+        }
+        next();
+    };
+}
+
 
 // Middleware to handle form data & JSON
 app.use(express.urlencoded({ extended: true }));
@@ -45,17 +87,17 @@ app.post("/register", async (req, res) => {
 
   const userId = result.insertId;
 
-  if (role === "donor")
-    return res.redirect(`/dashboards/donor.html?id=${userId}&name=${full_name}`);
-
-  if (role === "organisation")
-    return res.redirect(`/dashboards/organ_dash.html?id=${userId}&name=${full_name}`);
-
-  if (role === "admin")
-    return res.redirect("/dashboards/admin.html");
-});
-}catch{
-  res.send("Error")
+      res.json({
+        success: true,
+        role,
+        id: userId,
+        name: full_name
+      });
+    }
+  );  
+}catch (error) {
+  console.log(error);
+  res.status(500).json({ message: "Server error" });
 }
 });
 
@@ -69,48 +111,89 @@ app.get('/login', (req, res) => {
   res.sendFile(__dirname + '/login.html');
 });
 
-app.get('/test-bcrypt', async (req, res) => {
-  const hash = '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36FhL0pPzGkN7L6kD9XxY9a';
-  const ok = await bcrypt.compare('1234', hash);
-  res.send(ok ? 'MATCH' : 'NO MATCH');
-});
+
+
 
 
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  const sql = "SELECT * FROM user_sev WHERE email=?";
+    const { email, password } = req.body;
 
-  db.query(sql, [email], async (err, results) => {
-    if (err) {
-      console.log(err);
-      return res.send("DB error");
-    }
-    if (results.length === 0) return res.send("User not found");
+    db.query(
+        "SELECT * FROM user_sev WHERE email = ?",
+        [email],
+        async (err, results) => {
 
-    const user = results[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.send("Incorrect password");
+            if (err || results.length === 0) {
+                return res.status(400).json({ message: "User not found" });
+            }
 
-    // Redirect to dashboard with name + id in URL
-    if (user.role === "donor")
-      return res.redirect(`/dashboards/donor.html?name=${user.full_name}&id=${user.id}`);
-    if (user.role === "organisation")
-      return res.redirect(`/dashboards/organ_dash.html?name=${user.full_name}&id=${user.id}`);
-    if (user.role === "admin")
-      return res.redirect(`/dashboards/admin.html?name=${user.full_name}&id=${user.id}`);
-  });
-  
+            const user = results[0];
+
+            const validPassword = await bcrypt.compare(password, user.password);
+            if (!validPassword) {
+                return res.status(400).json({ message: "Invalid password" });
+            }
+
+            // 🔥 Create JWT Token
+            const token = jwt.sign(
+                {
+                    id: user.id,
+                    full_name: user.full_name,
+                    role: user.role
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRES }
+            );
+            res.json({
+    success: true,
+    token,
+    role: user.role,
+    id: user.id,
+    name: user.full_name
+});
+            
+        }
+    );
 });
 
+// authentication jwt
+app.get("/donor/dashboard",
+    authenticateToken,
+    authorizeRole("donor"),
+    (req, res) => {
+        res.json({ message: `Welcome Donor ${req.user.full_name}` });
+    }
+);
+
+app.get("/organisation/dashboard",
+    authenticateToken,
+    authorizeRole("organisation"),
+    (req, res) => {
+        res.json({ message: `Welcome Organisation ${req.user.full_name}` });
+    }
+);
+
+app.get("/admin/dashboard",
+    authenticateToken,
+    authorizeRole("admin"),
+    (req, res) => {
+        res.json({ message: `Welcome Admin ${req.user.full_name}` });
+    }
+);
 
 
 /* =====================================================
    =================== ADD DONATION ====================
    Stores donation with category-based NULL handling
 ===================================================== */
-app.post("/add-donation", (req, res) => {
+app.post("/add-donation",
+    authenticateToken,
+    authorizeRole("donor"),
+    (req, res) => {
+
+    const user_id = req.user.id;
   const {
-    user_id, category,
+    category,
     gender, age_group,
     food_type, prepared_date, best_before, pickup_urgency,
     medicine_name, expiry_date,
@@ -133,9 +216,9 @@ app.post("/add-donation", (req, res) => {
       gender, age_group,
       food_type, prepared_date, best_before, pickup_urgency,
       medicine_name, expiry_date,
-      item_name,organisation_id, pickup_preference, expected_datetime
+      item_name,organisation_id, pickup_preference, expected_datetime,status
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'Pending')
   `;
 
   db.query(sql, [
@@ -143,7 +226,7 @@ app.post("/add-donation", (req, res) => {
     data.gender, data.age_group,
     data.food_type, data.prepared_date, data.best_before, data.pickup_urgency,
     data.medicine_name, data.expiry_date,
-    data.item_name, organisation_id||null, pickup_preference, expected_datetime
+    data.item_name, organisation_id||null, pickup_preference||"pickup", expected_datetime
   ], (err) => {
     if (err) { console.log(err); return res.status(500).json({ message: "Donation failed" }); }
     res.json({ message: "Donation added successfully" });
@@ -156,8 +239,10 @@ app.post("/add-donation", (req, res) => {
 ===================================================== */
 
 
-app.get("/food/nearby-orgs", (req, res) => {
-  const userId = req.query.userId;
+app.get("/food/nearby-orgs",
+  authenticateToken,
+authorizeRole("donor"), (req, res) => {
+  const userId = req.user.id;
   if (!userId) return res.status(400).json([]);
 
   // 1️⃣ Get donor's latitude & longitude
@@ -210,8 +295,10 @@ app.get("/food/nearby-orgs", (req, res) => {
    ================= DONATION HISTORY ==================
    Fetches donation history for donor dashboard
 ===================================================== */
-app.get("/donor/history", async (req, res) => {
-    const userId = req.query.userId;
+app.get("/donor/history",
+    authenticateToken,
+    authorizeRole("donor"),
+    async (req, res) => {
 
     try {
         const [rows] = await db.promise().query(`
@@ -226,7 +313,7 @@ app.get("/donor/history", async (req, res) => {
                 ON d.organisation_id = u.id
             WHERE d.user_id = ?
             ORDER BY d.created_at DESC
-        `, [userId]);
+        `, [req.user.id]);
 
         res.json(rows); // MUST be array
     } catch (err) {
@@ -236,7 +323,9 @@ app.get("/donor/history", async (req, res) => {
 });
 
 // AVAILABLE DONATIONS (STATUS = PENDING)
-app.get("/donations/available", async (req, res) => {
+app.get("/donations/available",
+  authenticateToken,
+authorizeRole("organisation", "admin"), async (req, res) => {
     try {
         const [rows] = await db.promise().query(`
             SELECT
@@ -258,8 +347,13 @@ app.get("/donations/available", async (req, res) => {
 
 
 // ================= ADD ORGANIZATION NEED =================
-app.post("/add-org-request", (req, res) => {
-  const { org_id, title, description, urgency } = req.body;
+app.post("/add-org-request",
+    authenticateToken,
+    authorizeRole("organisation"),
+    (req, res) => {
+
+    const org_id = req.user.id;
+  const { title, description, urgency } = req.body;
   if (!org_id || !title) return res.status(400).json({ message: "Title & Org ID required" });
 
   const sql = `INSERT INTO org_needs (org_id, title, description, urgency) VALUES (?, ?, ?, ?)`;
@@ -270,8 +364,11 @@ app.post("/add-org-request", (req, res) => {
 });
 
 // organisation donation requests
-app.post("/request-donation", (req, res) => {
-  const { donation_id, org_id } = req.body;
+app.post("/request-donation",
+  authenticateToken,
+  authorizeRole("organisation"), (req, res) => {
+    const org_id = req.user.id;
+  const { donation_id} = req.body;
 
   db.query(
     "SELECT * FROM donation_requests WHERE donation_id=? AND org_id=?",
@@ -295,8 +392,10 @@ app.post("/request-donation", (req, res) => {
 });
 
 // ================= GET ORGANIZATION NEEDS =================
-app.get("/org-requests/:orgId", (req, res) => {
-  const orgId = req.params.orgId;
+app.get("/org-requests",
+  authenticateToken,
+  authorizeRole("organisation"), (req, res) => {
+  const orgId = req.user.id;
   const sql = `SELECT * FROM org_needs WHERE org_id = ? ORDER BY created_at DESC`;
   db.query(sql, [orgId], (err, rows) => {
     if (err) return res.status(500).json({ message: "Failed to fetch requests" });
@@ -305,7 +404,11 @@ app.get("/org-requests/:orgId", (req, res) => {
 });
 
 // ADMIN: Available pending donations (minimal view)
-app.get("/admin/available-items", async (req, res) => {
+app.get("/admin/available-items",
+    authenticateToken,
+    authorizeRole("admin"),
+    async (req, res) => {
+
     try {
         const [rows] = await db.promise().query(`
             SELECT
@@ -326,7 +429,11 @@ app.get("/admin/available-items", async (req, res) => {
 });
 
 //ADMIN: Settle donation with organisation
-app.post("/admin/settle-donation", async (req, res) => {
+app.post("/admin/settle-donation",
+    authenticateToken,
+    authorizeRole("admin"),
+    async(req, res) => {
+
     const { donation_id, organisation_id } = req.body;
 
     if (!organisation_id) {
@@ -349,7 +456,10 @@ app.post("/admin/settle-donation", async (req, res) => {
 });
 
 // ADMIN: Fetch all organisations
-app.get("/admin/organisations", async (req, res) => {
+app.get("/admin/organisations",
+    authenticateToken,
+    authorizeRole("admin"),
+    async (req, res) => {
     try {
         const [rows] = await db.promise().query(`
             SELECT id, full_name
@@ -366,32 +476,36 @@ app.get("/admin/organisations", async (req, res) => {
 });
 
 // ADMIN: Recent settled donations (NO quantity)
-app.get("/admin/recent-donations", async (req, res) => {
-    try {
-        const [rows] = await db.promise().query(`
-            SELECT
-                d.donation_id,
-                donor.full_name AS donor_name,
-                d.category,
-                org.full_name AS organisation_name,
-                d.updated_at AS settled_date
-            FROM donations d
-            JOIN user_sev donor ON d.user_id = donor.id
-            LEFT JOIN user_sev org ON d.organisation_id = org.id
-            WHERE d.status = 'Settled'
-            ORDER BY d.updated_at DESC
-            LIMIT 10
-        `);
-
-        res.json(rows);
-    } catch (err) {
-        console.error("Recent donations error:", err);
-        res.status(500).json([]);
-    }
+app.get("/admin/recent-donations",
+    authenticateToken,
+    authorizeRole("admin"),
+    async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(`
+      SELECT
+        d.donation_id,
+        donor.full_name AS donor_name,
+        d.category,
+        org.full_name AS organisation_name,
+        d.created_at AS settled_date
+      FROM donations d
+      JOIN user_sev donor ON d.user_id = donor.id
+      LEFT JOIN user_sev org ON d.organisation_id = org.id
+      WHERE d.status = 'Settled'
+      ORDER BY d.created_at DESC
+      LIMIT 10
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("Recent donations error:", err);
+    res.status(500).json([]);
+  }
 });
 
 //admin donation requests//
-app.get("/admin/all-requests", async (req, res) => {
+app.get("/admin/all-requests",
+  authenticateToken,
+  authorizeRole("admin"), async (req, res) => {
   try {
     const [rows] = await db.promise().query(`
 
@@ -432,36 +546,64 @@ app.get("/admin/all-requests", async (req, res) => {
 });
 
 /* ================= ADMIN FULFILL NEED ================= */
-app.post("/admin/settle-need", (req, res) => {
+app.post("/admin/settle-need",
+  authenticateToken,
+  authorizeRole("admin"), (req, res) => {
   const { id } = req.body;
 
+  if (!id) return res.status(400).json({ success: false, message: "Need ID required" });
+
   db.query(
-    "UPDATE org_needs SET status='Settled' WHERE need_id=?",
+    "UPDATE org_needs SET status='Settled' WHERE need_id=? AND status='Open'",
     [id],
-    () => res.json({ success:true })
+    (err,result) => {
+      if (err) {
+        console.error("Settle need error:", err);
+        return res.status(500).json({ success: false, message: "DB error" });
+      }
+      // Check if any row was actually updated
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: "Request already settled or not found" });
+      }
+      
+      res.json({ success: true, message: "Request successfully settled" });
+    }
   );
 });
 
+
 /* ================= ADMIN FULFILL DONATION ================= */
-app.post("/admin/settledonation", (req, res) => {
+app.post("/admin/settledonation",
+  authenticateToken,
+  authorizeRole("admin"), (req, res) => {
   const { id } = req.body;
 
   db.query(
     "SELECT donation_id FROM donation_requests WHERE request_id=?",
     [id],
     (err, rows) => {
-      if (rows.length === 0) return res.json({ success:false });
+      if (err) {
+        console.error("Donation request select error:", err);
+        return res.status(500).json({ success: false, message: "DB error" });
+      }
+      if (rows.length === 0)
+        return res.json({ success:false , message: "Request not found"});
 
       const donationId = rows[0].donation_id;
 
       db.query(
         "UPDATE donations SET status='Settled' WHERE donation_id=?",
-        [donationId]
-      );
-
+        [donationId],
+        (err2) => {
+          if (err2) {
+            console.error("Donation settle error:", err2);
+            return res.status(500).json({ success: false, message: "DB error" });
+          }
       res.json({ success:true });
     }
   );
+}
+);
 });
 
 // ================= LOGOUT =================

@@ -1,0 +1,116 @@
+/* ------------------ Admin Dashboard CSS ------------------ */
+.admin-container {
+  display: flex;
+  font-family: 'Poppins', Arial, sans-serif;
+  background: #f4f6f9;
+  min-height: 100vh;
+  width: 100vw; /* full viewport width */
+  overflow-x: hidden; /* prevent horizontal scroll */
+}
+
+/* ------------------ Sidebar ------------------ */
+.sidebar {
+  width: 230px;
+  background: #0D1E4C;
+  color: white;
+  padding: 20px;
+  min-height: 100vh; /* full height of viewport */
+  box-sizing: border-box;
+}
+
+.sidebar h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.sidebar button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: transparent;
+  border: none;
+  color: white;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.sidebar button:hover {
+  background: #C48CB3;
+  color: #fff;
+}
+
+/* ------------------ Main Content ------------------ */
+.main {
+  flex: 1;
+  padding: 40px;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* spacing between cards */
+  box-sizing: border-box;
+}
+
+/* ------------------ Card ------------------ */
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  width: 100%; /* full width of parent */
+  box-sizing: border-box;
+}
+
+/* ------------------ Table ------------------ */
+table {
+  width: 100%; /* full width inside card */
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+}
+
+th {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+/* ------------------ Buttons ------------------ */
+button {
+  background: #0D1E4C;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: #C48CB3;
+}
+
+/* ------------------ Responsive ------------------ */
+@media (max-width: 1024px) {
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .main {
+    padding: 20px;
+  }
+}

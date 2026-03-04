@@ -1,0 +1,147 @@
+/* ==================== Organization Dashboard CSS ==================== */
+
+/* ===== Layout Container ===== */
+.org-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  font-family: 'Poppins', Arial, sans-serif;
+  background: #f4f6f9;
+  overflow-x: hidden;
+}
+
+/* ===== Sidebar ===== */
+.org-sidebar {
+  width: 230px;
+  background: #0D1E4C;
+  color: #E5C9D7;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.org-sidebar h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-family: 'Roboto Slab', serif;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+/* Sidebar Buttons */
+.sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+  color: #E5C9D7;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sidebar-btn:hover {
+  background: #C48CB3;
+  color: white;
+}
+
+.logout-btn {
+  background: #0D1E4C;
+}
+
+.logout-btn:hover {
+  background: #C48CB3;
+  color: white;
+}
+
+/* ===== Main Content ===== */
+.org-main {
+  flex: 1;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+/* ===== Card Sections ===== */
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ===== Form styling ===== */
+.org-form input,
+.org-form textarea,
+.org-form select {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 12px;
+  background: #0D1E4C;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+  background: #C48CB3;
+}
+
+/* ===== Tables ===== */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.styled-table th,
+.styled-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+.styled-table th {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .org-container {
+    flex-direction: column;
+  }
+
+  .org-sidebar {
+    width: 100%;
+    text-align: center;
+  }
+
+  .org-main {
+    padding: 20px;
+  }
+}
