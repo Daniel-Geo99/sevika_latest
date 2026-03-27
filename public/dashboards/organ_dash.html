@@ -200,10 +200,53 @@ section h2 {
         <div class="form-container">
             <form id="addNeedForm">
 
-                <label for="title">Title</label>
-                <input type="text" id="title" name="title" required>
+                <label for="category">Category</label>
+                <select id="category" name="category" required onchange="showOrgFields()">
+                    <option value="">Select Category</option>
+                    <option value="clothes">Clothes</option>
+                    <option value="food">Food</option>
+                    <option value="medicine">Medicine</option>
+                    <option value="others">Others</option>
+                </select>
 
-                <label for="description">Description</label>
+                <div id="orgClothesFields" class="hidden">
+                    <label>Gender</label>
+                    <select name="gender">
+                        <option value="">Select Gender</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Unisex</option>
+                    </select>
+                    <label>Age Group</label>
+                    <select name="age_group">
+                        <option value="">Select Age Group</option>
+                        <option>Kids</option>
+                        <option>Teens</option>
+                        <option>Adults</option>
+                    </select>
+                </div>
+
+                <div id="orgFoodFields" class="hidden">
+                    <label>Food Type</label>
+                    <select name="food_type">
+                        <option value="">Select Food Type</option>
+                        <option>Cooked</option>
+                        <option>Packed</option>
+                        <option>Raw</option>
+                    </select>
+                </div>
+
+                <div id="orgMedicineFields" class="hidden">
+                    <label>Medicine Name</label>
+                    <input type="text" name="medicine_name" placeholder="Medicine Name">
+                </div>
+
+                <div id="orgOthersFields" class="hidden">
+                    <label>Item Name</label>
+                    <input type="text" name="item_name" placeholder="Item Name">
+                </div>
+
+                <label for="description">Additional Description (optional)</label>
                 <textarea id="description" name="description" rows="4"></textarea>
 
                 <label for="urgency">Urgency</label>
@@ -252,7 +295,7 @@ async function fetchItems() {
             tbody.innerHTML += `
             <tr>
                 <td>D${item.user_id}</td>
-                <td>${item.category}</td>
+                <td>${item.category === "others" ? `others (${item.item_name || "N/A"})` : item.category}</td>
                 <td>
                     <button onclick="requestItem(${item.donation_id})">
                         Request

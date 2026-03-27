@@ -30,7 +30,7 @@ function Login() {
 
     try {
       const res = await axios.post(
-        "http://localhost:3000/login",
+        "http://127.0.0.1:3000/login",
         formData
       );
 
@@ -47,12 +47,15 @@ function Login() {
         // 🔥 Redirect based on role
         if (role === "admin") {
           navigate("/admin");
-        } 
-        else if (role === "donor") {
+        } else if (role === "donor") {
           navigate("/donor");
-        } 
-        else if (role === "organisation") {
+        } else if (role === "organisation") {
           navigate("/org");
+        } else if (role === "user") {
+          navigate("/");
+        } else {
+          alert("Logged in, but no dedicated dashboard for role: " + role + ". Redirecting home.");
+          navigate("/");
         }
       }
 

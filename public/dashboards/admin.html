@@ -190,7 +190,7 @@ function loadRecentDonations(){
             tbody.innerHTML += `
             <tr>
                 <td>${d.donor_name}</td>
-                <td>${d.category}</td>
+                <td>${d.category === "others" ? `others (${d.item_name || "N/A"})` : d.category}</td>
                 <td>${d.organisation_name || "-"}</td>
                 <td>${new Date(d.settled_date).toLocaleDateString()}</td>
             </tr>`;
@@ -250,7 +250,7 @@ function loadAvailableItems(){
             tbody.innerHTML += `
             <tr>
                 <td>${d.donor_name}</td>
-                <td>${d.category}</td>
+                <td>${d.category === "others" ? `others (${d.item_name || "N/A"})` : d.category}</td>
                 <td>
                     <select id="org_${d.donation_id}">
                         <option value="">Select organisation</option>

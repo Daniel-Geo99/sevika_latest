@@ -71,7 +71,7 @@ const Register = () => {
     }
 
     try {
-      await axios.post("http://localhost:3000/register", formData);
+      await axios.post("http://127.0.0.1:3000/register", formData);
       alert("Registration successful!");
       // Optionally redirect to login page
       window.location.href = "/login";

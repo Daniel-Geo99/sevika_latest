@@ -30,6 +30,7 @@ const DonorDashboard = () => {
 
   /* ================= HANDLE INPUT ================= */
   const handleChange = (e) => {
+    console.log(`INPUT CHANGE: ${e.target.name} = ${e.target.value}`);
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
@@ -42,13 +43,13 @@ const DonorDashboard = () => {
 
     try {
       const res = await fetch(
-      `http://localhost:3000/donor/history`,
-      {
-        headers: {
-          "Authorization": "Bearer " + getToken()
+        `http://127.0.0.1:3000/donor/history`,
+        {
+          headers: {
+            "Authorization": "Bearer " + getToken()
+          }
         }
-      }
-    );
+      );
 
       if (handleAuthError(res)) return;
 
@@ -67,7 +68,7 @@ const DonorDashboard = () => {
       setLoadingOrgs(true);
 
       const res = await fetch(
-        `http://localhost:3000/food/nearby-orgs`,
+        `http://127.0.0.1:3000/food/nearby-orgs`,
         {
           headers: {
             "Authorization": "Bearer " + getToken()
@@ -98,6 +99,27 @@ const DonorDashboard = () => {
       return;
     }
 
+    /* ================= FOOD VALIDATION ================= */
+    if (category === "food") {
+      const { prepared_date, best_before, expected_datetime } = formData;
+      if (prepared_date && expected_datetime) {
+        const prepared = new Date(prepared_date).setHours(0, 0, 0, 0);
+        const expected = new Date(expected_datetime).getTime();
+        if (expected < prepared) {
+          setSubmitStatus("❌ Expected date must be after or on prepared date.");
+          return;
+        }
+      }
+      if (best_before && expected_datetime) {
+        const best = new Date(best_before).setHours(23, 59, 59, 999);
+        const expected = new Date(expected_datetime).getTime();
+        if (expected > best) {
+          setSubmitStatus("❌ Expected date must be on or before best before date.");
+          return;
+        }
+      }
+    }
+
     try {
       setSubmitStatus("Submitting donation...");
 
@@ -105,8 +127,10 @@ const DonorDashboard = () => {
         ...formData,
         category: category
       };
+      console.log("SUBMITTING DATA:", data);
+      console.log("TYPED QUANTITY:", formData.quantity);
 
-      const res = await fetch("http://localhost:3000/add-donation", {
+      const res = await fetch("http://127.0.0.1:3000/add-donation", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -141,6 +165,35 @@ const DonorDashboard = () => {
   const logout = () => {
     localStorage.clear();
     navigate("/");
+  };
+
+  const getMinDateTime = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const getMinDate = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now - tzOffset).toISOString().slice(0, 10);
+  };
+
+  const getExpectedMin = () => {
+    const todayMin = getMinDateTime();
+    if (category === "food" && formData.prepared_date) {
+      // It can't be before it was prepared, but also can't be in the past
+      const preparedMin = formData.prepared_date + "T00:00";
+      return preparedMin > todayMin ? preparedMin : todayMin;
+    }
+    return todayMin;
+  };
+
+  const getExpectedMax = () => {
+    if (category === "food" && formData.best_before) {
+      return formData.best_before + "T23:59";
+    }
+    return undefined; // or null
   };
 
   useEffect(() => {
@@ -196,7 +249,9 @@ const DonorDashboard = () => {
               <option value="clothes">Clothes</option>
               <option value="food">Food</option>
               <option value="medicine">Medicine</option>
-              <option value="others">Others</option>
+              <option value="toiletries">Toiletries</option>
+              <option value="electricals">Electrical Essentials</option>
+              <option value="stationary">Stationary</option>
             </select>
 
             {/* ================= CLOTHES ================= */}
@@ -235,7 +290,7 @@ const DonorDashboard = () => {
                 <input type="date" name="prepared_date" onChange={handleChange} />
 
                 <label>Best Before</label>
-                <input type="date" name="best_before" onChange={handleChange} />
+                <input type="date" name="best_before" min={getMinDate()} onChange={handleChange} />
 
                 <label>Pickup Urgency</label>
                 <select name="pickup_urgency" onChange={handleChange}>
@@ -268,15 +323,63 @@ const DonorDashboard = () => {
               </>
             )}
 
-            {/* ================= OTHERS ================= */}
-            {category === "others" && (
+            {/* ================= TOILETRIES ================= */}
+            {category === "toiletries" && (
               <>
-                <label>Item Name</label>
+                <label>Type</label>
+                <select name="item_name" onChange={handleChange} required>
+                  <option value="">Select</option>
+                  <option>Soaps</option>
+                  <option>Shampoo</option>
+                  <option>Sanitary Napkins</option>
+                </select>
+              </>
+            )}
+
+            {/* ================= ELECTRICAL ESSENTIALS ================= */}
+            {category === "electricals" && (
+              <>
+                <label>Type</label>
+                <select name="item_name" onChange={handleChange} required>
+                  <option value="">Select</option>
+                  <option>Tubelight</option>
+                  <option>Bulb</option>
+                  <option>Battery</option>
+                </select>
+              </>
+            )}
+
+            {/* ================= STATIONARY ================= */}
+            {category === "stationary" && (
+              <>
+                <label>Type</label>
+                <select name="item_name" onChange={handleChange} required>
+                  <option value="">Select</option>
+                  <option>Pen</option>
+                  <option>Pencils</option>
+                  <option>Scale</option>
+                </select>
+              </>
+            )}
+
+            {category && (
+              <>
+                <label>Quantity</label>
                 <input
-                  type="text"
-                  name="item_name"
-                  onChange={handleChange}
+                  type="number"
+                  name="quantity"
+                  min="1"
                   required
+                  placeholder="e.g. 10"
+                  onChange={handleChange}
+                  value={formData.quantity || ""}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    marginTop: "5px",
+                    borderRadius: "5px",
+                    border: "1px solid #ddd"
+                  }}
                 />
               </>
             )}
@@ -326,6 +429,8 @@ const DonorDashboard = () => {
                 <input
                   type="datetime-local"
                   name="expected_datetime"
+                  min={getExpectedMin()}
+                  max={getExpectedMax()}
                   onChange={handleChange}
                 />
 
@@ -361,7 +466,7 @@ const DonorDashboard = () => {
                 {history.map((d) => (
                   <tr key={d.donation_id}>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
-                    <td>{d.category}</td>
+                    <td>{["toiletries","electricals","stationary"].includes(d.category) ? `${d.category} (${d.item_name || "N/A"})` : d.category} ({d.quantity})</td>
 
                     <td>{d.organisation_name || (d.status === "Settled" ? "—" : "Not yet assigned")}</td>
                     <td className={`status-${d.status}`}>

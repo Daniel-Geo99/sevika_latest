@@ -10,10 +10,14 @@ function OrgDashboard() {
 
   const [items, setItems] = useState([]);
   const [needs, setNeeds] = useState([]);
+  const [requestQuantities, setRequestQuantities] = useState({});
 
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
+    category: "",
+    subcategory: "",
+    gender: "",
+    age_group: "",
+    quantity: 1,
     urgency: "Medium",
   });
 
@@ -42,7 +46,7 @@ function OrgDashboard() {
   /* ================= FETCH AVAILABLE ITEMS ================= */
   const fetchItems = async () => {
     try {
-      const res = await fetch("http://localhost:3000/donations/available", {
+      const res = await fetch("http://127.0.0.1:3000/donations/available", {
         headers: {
           Authorization: "Bearer " + getToken(),
         },
@@ -59,7 +63,7 @@ function OrgDashboard() {
   /* ================= REQUEST DONATION ================= */
   const requestItem = async (donationId) => {
     try {
-      const res = await fetch("http://localhost:3000/request-donation", {
+      const res = await fetch("http://127.0.0.1:3000/request-donation", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -68,6 +72,7 @@ function OrgDashboard() {
         body: JSON.stringify({
           donation_id: donationId,
           org_id: orgId,
+          quantity: requestQuantities[donationId] || 1
         }),
       });
 
@@ -89,7 +94,7 @@ function OrgDashboard() {
   const fetchMyNeeds = async () => {
     try {
       const res = await fetch(
-        `http://localhost:3000/org-requests/${orgId}`,
+        `http://127.0.0.1:3000/org-requests/${orgId}`,
         {
           headers: {
             Authorization: "Bearer " + getToken(),
@@ -109,15 +114,35 @@ function OrgDashboard() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.category) {
+      alert("Please select a category");
+      return;
+    }
+
+    if (formData.category === "clothes" && (!formData.gender || !formData.age_group)) {
+      alert("Please provide gender and age group for clothes");
+      return;
+    }
+
+    if (formData.category !== "clothes" && !formData.subcategory) {
+      alert("Please select a subcategory for this category");
+      return;
+    }
+
     try {
-      const res = await fetch("http://localhost:3000/add-org-request", {
+      const res = await fetch("http://127.0.0.1:3000/add-org-request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + getToken(),
         },
         body: JSON.stringify({
-          ...formData,
+          category: formData.category,
+          subcategory: formData.subcategory || null,
+          gender: formData.gender || null,
+          age_group: formData.age_group || null,
+          quantity: formData.quantity || 1,
+          urgency: formData.urgency || "Medium",
           org_id: orgId,
         }),
       });
@@ -126,8 +151,11 @@ function OrgDashboard() {
       alert(result.message);
 
       setFormData({
-        title: "",
-        description: "",
+        category: "",
+        subcategory: "",
+        gender: "",
+        age_group: "",
+        quantity: 1,
         urgency: "Medium",
       });
 
@@ -211,6 +239,8 @@ function OrgDashboard() {
               <tr>
                 <th>Donor</th>
                 <th>Category</th>
+                <th>Available</th>
+                <th>Qty to Request</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -224,7 +254,22 @@ function OrgDashboard() {
                 items.map((item) => (
                   <tr key={item.donation_id}>
                     <td>D{item.user_id}</td>
-                    <td>{item.category}</td>
+                    <td>{["toiletries","electricals","stationary"].includes(item.category) ? `${item.category} (${item.item_name || "N/A"})` : item.category}</td>
+                    <td>{item.quantity}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        max={item.quantity}
+                        value={requestQuantities[item.donation_id] || ""}
+                        onChange={(e) => setRequestQuantities({
+                          ...requestQuantities,
+                          [item.donation_id]: parseInt(e.target.value)
+                        })}
+                        placeholder="Qty"
+                        style={{ width: "60px", padding: "4px" }}
+                      />
+                    </td>
                     <td>
                       <button
                         onClick={() => requestItem(item.donation_id)}
@@ -246,8 +291,10 @@ function OrgDashboard() {
           <table>
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Description</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Subcategory</th>
+                <th>Qty</th>
                 <th>Urgency</th>
                 <th>Status</th>
                 <th>Created</th>
@@ -257,13 +304,19 @@ function OrgDashboard() {
             <tbody>
               {needs.length === 0 ? (
                 <tr>
-                  <td colSpan="5">No needs posted yet</td>
+                  <td colSpan="8">No needs posted yet</td>
                 </tr>
               ) : (
                 needs.map((n, index) => (
                   <tr key={index}>
-                    <td>{n.title}</td>
-                    <td>{n.description || "-"}</td>
+                    <td>My Need</td>
+                    <td>{n.category || "-"}</td>
+                    <td>
+                      {n.category === 'clothes'
+                        ? `${n.gender || 'Any'} - ${n.age_group || 'Any'}`
+                        : (n.subcategory || "-")}
+                    </td>
+                    <td>{n.quantity || "-"}</td>
                     <td>{n.urgency}</td>
                     <td>{n.status}</td>
                     <td>
@@ -281,26 +334,105 @@ function OrgDashboard() {
           <h3>Add New Need</h3>
 
           <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              placeholder="Title"
+            <select
+              value={formData.category || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, category: e.target.value })
+              }
               required
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-            />
+            >
+              <option value="">Select Category</option>
+              <option value="clothes">Clothes</option>
+              <option value="food">Food</option>
+              <option value="medicine">Medicine</option>
+              <option value="toiletries">Toiletries</option>
+              <option value="electricals">Electrical Essentials</option>
+              <option value="stationary">Stationary</option>
+            </select>
 
-            <textarea
-              placeholder="Description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
+            {formData.category === "clothes" && (
+              <>
+                <select value={formData.gender || ""} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} required>
+                  <option value="">Select Gender</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Unisex</option>
+                </select>
+                <select value={formData.age_group || ""} onChange={(e) => setFormData({ ...formData, age_group: e.target.value })} required>
+                  <option value="">Select Age Group</option>
+                  <option>Kids</option>
+                  <option>Teens</option>
+                  <option>Adults</option>
+                </select>
+              </>
+            )}
+
+            {formData.category === "food" && (
+              <>
+                <select value={formData.subcategory || ""} onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })} required>
+                  <option value="">Select Food Type</option>
+                  <option>Cooked</option>
+                  <option>Packed</option>
+                  <option>Raw</option>
+                </select>
+              </>
+            )}
+
+            {formData.category === "medicine" && (
+              <>
+                <input
+                  type="text"
+                  value={formData.subcategory || ""}
+                  placeholder="Medicine Name"
+                  onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                  required
+                />
+              </>
+            )}
+
+            {formData.category === "toiletries" && (
+              <>
+                <select value={formData.subcategory || ""} onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })} required>
+                  <option value="">Select Type</option>
+                  <option>Soaps</option>
+                  <option>Shampoo</option>
+                  <option>Sanitary Napkins</option>
+                </select>
+              </>
+            )}
+
+            {formData.category === "electricals" && (
+              <>
+                <select value={formData.subcategory || ""} onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })} required>
+                  <option value="">Select Type</option>
+                  <option>Tubelight</option>
+                  <option>Bulb</option>
+                  <option>Battery</option>
+                </select>
+              </>
+            )}
+
+            {formData.category === "stationary" && (
+              <>
+                <select value={formData.subcategory || ""} onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })} required>
+                  <option value="">Select Type</option>
+                  <option>Pen</option>
+                  <option>Pencils</option>
+                  <option>Scale</option>
+                </select>
+              </>
+            )}
+
+            <input
+              type="number"
+              min="1"
+              value={formData.quantity || 1}
+              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+              placeholder="Quantity"
             />
 
             <select
-              value={formData.urgency}
+              value={formData.urgency || "Medium"}
               onChange={(e) =>
                 setFormData({ ...formData, urgency: e.target.value })
               }
