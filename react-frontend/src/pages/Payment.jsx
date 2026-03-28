@@ -14,7 +14,7 @@ export default function Payment() {
     name: "", number: "", expiry: "", cvv: ""
   });
 
-  const token = localStorage.getItem("sevika_token");
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
     fetchOrgs();
