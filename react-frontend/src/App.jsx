@@ -10,7 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Home from "./pages/Home";
 import Intro from "./pages/Intro";
 import DonorDetails from "./pages/DonorDetails";
-
+import ChatWidget from "./components/ChatWidget";
 function App() {
   const [showIntro, setShowIntro] = useState(() => {
   return sessionStorage.getItem("introPlayed") !== "true";
@@ -49,6 +49,7 @@ function App() {
               <Route path="*" element={<Home />} />
               <Route path="/ForumPage" element={<Forum />} />
             </Routes>
+           <ChatWidget />
           </motion.div>
         )}
       </AnimatePresence>
