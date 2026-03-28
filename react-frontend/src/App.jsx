@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Intro from "./pages/Intro";
 import DonorDetails from "./pages/DonorDetails";
 import ChatWidget from "./components/ChatWidget";
+import Payment from "./pages/Payment";
 function App() {
   const [showIntro, setShowIntro] = useState(() => {
   return sessionStorage.getItem("introPlayed") !== "true";
@@ -48,6 +49,7 @@ function App() {
               <Route path="/org" element={<OrgDashboard />} />
               <Route path="*" element={<Home />} />
               <Route path="/ForumPage" element={<Forum />} />
+              <Route path="/payment" element={<Payment />} />
             </Routes>
            <ChatWidget />
           </motion.div>
