@@ -1,10 +1,11 @@
 const mysql = require("mysql2");
 
 const db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "a1c2h3u4",
-    database: "sevika_db"
+    host: process.env.MYSQLHOST,
+    port: process.env.MYSQLPORT,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE
 });
 
 db.connect(err => {
