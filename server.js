@@ -934,6 +934,9 @@ Sevika is a hyper-local charity platform. Here is how it works:
 - Admins match donors with organisations and settle donations.
 - The forum allows anonymous complaints about organisations.
 - Food donations are matched to nearby organisations based on location.
+- Donors can also make monetary donations to organisations via the Payment page.
+- The payment page allows donors to choose an organisation and donate any amount.
+- Payment history is saved and visible on the payment page.
 `;
 
     // Build prompt
