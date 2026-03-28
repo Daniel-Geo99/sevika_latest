@@ -975,6 +975,49 @@ Platform guide: ${platformGuide}`;
   }
 });
 /* =====================================================
+   PAYMENTS
+===================================================== */
+app.post("/api/payment/create", authenticateToken, authorizeRole("donor"), async (req, res) => {
+  const { organisation_id, amount } = req.body;
+  const donor_id = req.user.id;
+
+  if (!organisation_id || !amount) {
+    return res.status(400).json({ success: false, message: "Organisation and amount required" });
+  }
+
+  try {
+    // Generate fake transaction ID for simulation
+    const transaction_id = "TXN" + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+    await db.promise().query(
+      `INSERT INTO payments (donor_id, organisation_id, amount, transaction_id, status) VALUES (?, ?, ?, ?, 'Success')`,
+      [donor_id, organisation_id, amount, transaction_id]
+    );
+
+    res.json({ success: true, transaction_id, amount, message: "Payment successful" });
+  } catch (err) {
+    console.error("PAYMENT ERROR:", err);
+    res.status(500).json({ success: false, message: "Payment failed" });
+  }
+});
+
+app.get("/api/payment/history", authenticateToken, authorizeRole("donor"), async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(`
+      SELECT p.payment_id, p.amount, p.transaction_id, p.status, p.created_at,
+             u.full_name AS organisation_name
+      FROM payments p
+      JOIN user_sev u ON p.organisation_id = u.id
+      WHERE p.donor_id = ?
+      ORDER BY p.created_at DESC
+    `, [req.user.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+/* =====================================================
    SERVER
 ===================================================== */
 app.listen(3000, () => {
