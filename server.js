@@ -1017,6 +1017,18 @@ app.get("/api/payment/history", authenticateToken, authorizeRole("donor"), async
     res.status(500).json([]);
   }
 });
+// Organisations list for donors (for payment)
+app.get("/api/organisations/list", authenticateToken, authorizeRole("donor"), async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT id, full_name FROM user_sev WHERE role = 'organisation'"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
 /* =====================================================
    SERVER
 ===================================================== */

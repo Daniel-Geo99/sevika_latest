@@ -22,16 +22,15 @@ export default function Payment() {
   }, []);
 
   const fetchOrgs = async () => {
-    try {
-      const res = await axios.get(`${API}/admin/organisations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setOrganisations(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
+  try {
+    const res = await axios.get(`${API}/api/organisations/list`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setOrganisations(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
   const fetchHistory = async () => {
     try {
       const res = await axios.get(`${API}/api/payment/history`, {
