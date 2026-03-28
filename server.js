@@ -79,7 +79,7 @@ app.post("/api/forum/create-post", forumLimiter, async (req, res) => {
     return res.status(400).json({ message: "Content and organization required" });
   }
   try {
-    const mlResponse = await axios.post("http://127.0.0.1:5001/analyze", { message: content });
+    const mlResponse = await axios.post("https://lucid-curiosity-production-bcbf.up.railway.app/analyze", { message: content });
     const { spam, urgency } = mlResponse.data;
     if (spam) return res.status(400).json({ message: "Post detected as spam and rejected." });
     
