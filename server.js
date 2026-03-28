@@ -867,7 +867,113 @@ app.get("/food/nearby-orgs", authenticateToken, authorizeRole("donor"), async (r
     res.status(500).json([]);
   }
 });
+/* =====================================================
+   RAG CHATBOT
+===================================================== */
+app.post("/api/chat", async (req, res) => {
+  const { message, userId, role } = req.body;
+  if (!message) return res.status(400).json({ error: "Message required" });
 
+  try {
+    let context = "";
+
+    const lowerMsg = message.toLowerCase();
+
+    // RAG: Donation history
+    if (lowerMsg.includes("donation") || lowerMsg.includes("history") || lowerMsg.includes("my donat")) {
+      if (userId) {
+        const [rows] = await db.promise().query(
+          `SELECT category, status, quantity, created_at FROM donations WHERE user_id = ? ORDER BY created_at DESC LIMIT 10`,
+          [userId]
+        );
+        if (rows.length > 0) {
+          context += `\nUser's donation history:\n${JSON.stringify(rows, null, 2)}`;
+        }
+      }
+    }
+
+    // RAG: Organisation needs
+    if (lowerMsg.includes("org") || lowerMsg.includes("need") || lowerMsg.includes("organisation") || lowerMsg.includes("require")) {
+      const [rows] = await db.promise().query(
+        `SELECT u.full_name AS organisation, n.category, n.subcategory, n.quantity, n.urgency 
+         FROM org_needs n JOIN user_sev u ON n.org_id = u.id 
+         WHERE n.status = 'Open' ORDER BY n.urgency DESC LIMIT 10`
+      );
+      if (rows.length > 0) {
+        context += `\nCurrent organisation needs:\n${JSON.stringify(rows, null, 2)}`;
+      }
+    }
+
+    // RAG: Available donations
+    if (lowerMsg.includes("available") || lowerMsg.includes("pending") || lowerMsg.includes("near")) {
+      const [rows] = await db.promise().query(
+        `SELECT d.category, d.item_name, d.quantity, u.full_name AS donor 
+         FROM donations d JOIN user_sev u ON d.user_id = u.id 
+         WHERE d.status = 'Pending' LIMIT 10`
+      );
+      if (rows.length > 0) {
+        context += `\nCurrently available donations:\n${JSON.stringify(rows, null, 2)}`;
+      }
+    }
+
+    // RAG: Forum complaints
+    if (lowerMsg.includes("forum") || lowerMsg.includes("complaint") || lowerMsg.includes("post") || lowerMsg.includes("issue")) {
+      const [rows] = await db.promise().query(
+        `SELECT type, content, urgency, created_at FROM posts ORDER BY created_at DESC LIMIT 5`
+      );
+      if (rows.length > 0) {
+        context += `\nRecent forum complaints:\n${JSON.stringify(rows, null, 2)}`;
+      }
+    }
+
+    // Static platform guide
+    const platformGuide = `
+Sevika is a hyper-local charity platform. Here is how it works:
+- Donors can register and donate clothes, food, medicine, and other essentials.
+- Organisations can browse available donations and request what they need.
+- Admins match donors with organisations and settle donations.
+- The forum allows anonymous complaints about organisations.
+- Food donations are matched to nearby organisations based on location.
+`;
+
+    // Build prompt
+    const systemPrompt = `You are Sevika Assistant, a helpful chatbot for the Sevika charity platform. 
+Answer questions based on the real data provided. Be concise, friendly and helpful.
+If no relevant data is found, use the platform guide to answer.
+Platform guide: ${platformGuide}`;
+
+    const userPrompt = context
+      ? `User question: ${message}\n\nRelevant data from the database:\n${context}`
+      : `User question: ${message}`;
+
+    // Call Groq API
+    const groqResponse = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "llama3-8b-8192",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const answer = groqResponse.data.choices[0].message.content;
+    res.json({ answer });
+
+  } catch (error) {
+    console.error("CHAT ERROR:", error.response?.data || error.message);
+    res.status(500).json({ error: "Chatbot unavailable" });
+  }
+});
 /* =====================================================
    SERVER
 ===================================================== */
