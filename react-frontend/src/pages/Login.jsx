@@ -4,211 +4,184 @@ import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import "../index.css";
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } }
+};
+
 function Login() {
   const navigate = useNavigate();
-
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
-
-  const [theme, setTheme] = useState("light");
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [loading, setLoading] = useState(false);
+  const isDark = theme === "dark";
 
   useEffect(() => {
     document.body.className = theme;
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setLoading(true);
     try {
-      const res = await axios.post(
-        "https://sevikalatest-production.up.railway.app/login",
-        formData
-      );
-
+      const res = await axios.post("https://sevikalatest-production.up.railway.app/login", formData);
       if (res.data.success) {
-        const role = res.data.role;
-
-        // ✅ SAVE TOKEN (VERY IMPORTANT)
-        localStorage.setItem("token", res.data.token);
-        // Save user data
-        localStorage.setItem("userId", res.data.id);
+        const { role, token, id, name } = res.data;
+        localStorage.setItem("token", token);
+        localStorage.setItem("userId", id);
         localStorage.setItem("role", role);
-        localStorage.setItem("name", res.data.name);
-
-        // 🔥 Redirect based on role
-        if (role === "admin") {
-          navigate("/admin");
-        } else if (role === "donor") {
-          navigate("/donor");
-        } else if (role === "organisation") {
-          navigate("/org");
-        } else if (role === "user") {
-          navigate("/");
-        } else {
-          alert("Logged in, but no dedicated dashboard for role: " + role + ". Redirecting home.");
-          navigate("/");
-        }
+        localStorage.setItem("name", name);
+        if (role === "admin") navigate("/admin");
+        else if (role === "donor") navigate("/donor");
+        else if (role === "organisation") navigate("/org");
+        else navigate("/");
       }
+    } catch (error) {
+      alert(error.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-     } //catch (error) {
-    //   alert("Login failed");
-    // }
-    catch (error) {
-  console.log("ERROR:", error.response?.data);
-  alert(error.response?.data?.message || "Login failed");
-}
-
+  const s = {
+    field: { marginBottom: "0.1rem" },
+    link: {
+      color: isDark ? "#e8923a" : "#c4621a",
+      fontWeight: "700",
+      textDecoration: "none",
+      fontSize: "0.88rem",
+      transition: "opacity 0.2s",
+    },
+    divider: {
+      display: "flex", alignItems: "center", gap: "0.8rem",
+      margin: "1.4rem 0",
+      color: isDark ? "#6a5a48" : "#c8b098",
+      fontSize: "0.78rem",
+    },
+    dividerLine: {
+      flex: 1, height: "1px",
+      background: isDark ? "rgba(232,146,58,0.12)" : "rgba(196,98,26,0.12)",
+    },
   };
 
   return (
-    <motion.div
-      className="register-wrapper"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.7 }}
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "60px 20px"
-      }}
-    >
-      {/* Theme Toggle */}
-      <div
-        className="theme-toggle"
-        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-      >
-        {theme === "light" ? "🌙 Dark Mode" : "☀ Light Mode"}
+    <>
+      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+      {/* Theme toggle */}
+      <button className="theme-toggle" onClick={() => setTheme(isDark ? "light" : "dark")}>
+        {isDark ? "☀ Light" : "🌙 Dark"}
+      </button>
+
+      {/* Back to home */}
+      <div style={{ position: "fixed", top: "1.2rem", left: "1.5rem", zIndex: 200 }}>
+        <Link to="/" style={{
+          fontFamily: "'Lato', sans-serif", fontWeight: "700", fontSize: "1.1rem",
+          background: "linear-gradient(135deg, #e8923a, #c4621a)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          textDecoration: "none",
+        }}>
+          Sevika
+        </Link>
       </div>
 
       <motion.div
-        className="form-container"
-        initial={{ y: 40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        style={{
-          maxWidth: "400px",
-          width: "100%",
-          background: theme === "light" ? "white" : "#1e2a38",
-          padding: "35px",
-          borderRadius: "20px",
-          boxShadow:
-            theme === "light"
-              ? "0 10px 25px rgba(0,0,0,0.2)"
-              : "0 10px 25px rgba(0,0,0,0.5)",
-          color: theme === "light" ? "#0D1E4C" : "#E5C9D7"
-        }}
+        className="register-wrapper"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
       >
-        <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
-          Login
-        </h2>
-
-        <form onSubmit={handleSubmit}>
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            placeholder="Enter your email"
-            required
-            onChange={handleChange}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "6px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
-              background: theme === "light" ? "white" : "#2c3e50",
-              color: theme === "light" ? "#0D1E4C" : "white"
-            }}
-          />
-
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            placeholder="Enter your password"
-            required
-            onChange={handleChange}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "6px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
-              background: theme === "light" ? "white" : "#2c3e50",
-              color: theme === "light" ? "#0D1E4C" : "white"
-            }}
-          />
-
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              marginTop: "25px",
-              width: "100%",
-              padding: "12px",
-              background: theme === "light" ? "#0D1E4C" : "#42a5f5",
-              border: "none",
-              borderRadius: "30px",
-              fontWeight: "600",
-              color: "white",
-              cursor: "pointer"
-            }}
-          >
-            Login
-          </motion.button>
-        </form>
-
-        <Link
-          to="/forgot-password"
-          style={{
-            display: "block",
-            textAlign: "center",
-            marginTop: "15px",
-            fontWeight: "bold",
-            textDecoration: "none",
-            color: theme === "light" ? "#0D1E4C" : "#E5C9D7"
-          }}
+        <motion.div
+          className="form-container"
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
         >
-          Forgot Password?
-        </Link>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <div style={{
+              display: "inline-block", padding: "0.35rem 1rem", borderRadius: "30px",
+              background: isDark ? "rgba(232,146,58,0.12)" : "rgba(196,98,26,0.08)",
+              border: isDark ? "1px solid rgba(232,146,58,0.25)" : "1px solid rgba(196,98,26,0.18)",
+              color: isDark ? "#e8923a" : "#c4621a",
+              fontSize: "0.72rem", fontWeight: "700", letterSpacing: "0.12em",
+              textTransform: "uppercase", marginBottom: "0.9rem",
+            }}>
+              Welcome back
+            </div>
+            <h2 style={{ marginBottom: "0.4rem" }}>Sign in to Sevika</h2>
+            <p style={{ fontSize: "0.88rem", color: isDark ? "#9e8a6e" : "#7a5c3a" }}>
+              Continue your giving journey
+            </p>
+          </div>
 
-        <div style={{ textAlign: "center", marginTop: "18px" }}>
-          <Link
-            to="/register"
-            style={{
-              fontWeight: "bold",
-              margin: "0 8px",
-              color: theme === "light" ? "#0D1E4C" : "#E5C9D7"
-            }}
-          >
-            Create Account
-          </Link>
-          |
-          <Link
-            to="/"
-            style={{
-              fontWeight: "bold",
-              margin: "0 8px",
-              color: theme === "light" ? "#0D1E4C" : "#E5C9D7"
-            }}
-          >
-            Back to Home
-          </Link>
-        </div>
+          <form onSubmit={handleSubmit}>
+            <div style={s.field}>
+              <label>Email address</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                required
+                onChange={handleChange}
+                autoComplete="email"
+              />
+            </div>
+
+            <div style={s.field}>
+              <label>Password</label>
+              <input
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                required
+                onChange={handleChange}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <div style={{ textAlign: "right", marginTop: "0.5rem" }}>
+              <Link to="/forgot-password" style={s.link}>
+                Forgot password?
+              </Link>
+            </div>
+
+            <motion.button
+              type="submit"
+              className="submit-btn"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={loading}
+              style={{ opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? "Signing in…" : "Sign In →"}
+            </motion.button>
+          </form>
+
+          <div style={s.divider}>
+            <div style={s.dividerLine} />
+            <span>or</span>
+            <div style={s.dividerLine} />
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <span style={{ fontSize: "0.88rem", color: isDark ? "#9e8a6e" : "#7a5c3a" }}>
+              Don't have an account?{" "}
+            </span>
+            <Link to="/register" style={s.link}>Create one</Link>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: "0.8rem" }}>
+            <Link to="/" style={{ ...s.link, fontSize: "0.8rem", opacity: 0.7 }}>
+              ← Back to home
+            </Link>
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </>
   );
 }
 
