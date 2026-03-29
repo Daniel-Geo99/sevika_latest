@@ -153,6 +153,8 @@ const DonorDashboard = () => {
     <div className="donor-container">
       <div className="sidebar">
         <h2>Donor Panel</h2>
+        <button onClick={() => navigate("/")}>🏠 Home</button>
+        <button onClick={() => navigate("/ForumPage")}>📢 Forum</button>
         <button>Dashboard</button>
         <button>Add Donation</button>
         <button>History</button>

@@ -220,6 +220,8 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <div className="sidebar">
         <h2>Admin Panel</h2>
+        <button onClick={() => navigate("/")}>🏠 Home</button>
+        <button onClick={() => navigate("/ForumPage")}>📢 Forum</button>
         <button>Dashboard</button>
         <button>Recent Donations</button>
         <button>Available Items</button>

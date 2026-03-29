@@ -73,7 +73,7 @@ app.use(express.static("public"));
 /* =====================================================
    FORUM ROUTES
 ===================================================== */
-app.post("/api/forum/create-post", forumLimiter, async (req, res) => {
+app.post("/api/forum/create-post", forumLimiter, authenticateToken, authorizeRole("donor", "admin"), async (req, res) => {
   const { content, type, action, organization } = req.body;
   if (!content || !organization) {
     return res.status(400).json({ message: "Content and organization required" });
@@ -93,7 +93,7 @@ app.post("/api/forum/create-post", forumLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/forum/vote/:postId/:voteType", authenticateToken, (req, res) => {
+app.post("/api/forum/vote/:postId/:voteType", authenticateToken, authorizeRole("donor", "admin"), (req, res) => {
   const { postId, voteType } = req.params;
   const userId = req.user.id;
   const sql = `INSERT INTO votes (post_id, user_identifier, vote_type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE vote_type = ?`;

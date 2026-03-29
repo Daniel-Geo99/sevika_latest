@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 function ForumPage() {
   const navigate = useNavigate();
+  const role = localStorage.getItem("role");
 
   const API = "https://sevikalatest-production.up.railway.app/api/forum";
 
@@ -49,6 +50,11 @@ function ForumPage() {
   // ================= SUBMIT POST =================
 
   const submitPost = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/register");
+      return;
+    }
 
     if (!organization) {
       setMessageColor("red");
@@ -61,7 +67,8 @@ function ForumPage() {
       const res = await fetch(`${API}/create-post`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
         },
         body: JSON.stringify({
           content,
@@ -150,6 +157,18 @@ function ForumPage() {
 
     return "#f5f5f5";
   };
+
+  if (role === "organisation") {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: "#f5f5f5", fontFamily: "Poppins, Arial" }}>
+        <div style={{ background: "white", padding: "40px", borderRadius: "10px", textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
+          <h2 style={{ color: "#e74c3c" }}>Access Restricted</h2>
+          <p>Only Donors and Administrators are permitted to access the Complaint Forum.</p>
+          <button onClick={() => navigate(-1)} style={{ marginTop: "20px", padding: "10px 20px", background: "#3498db", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}>Go Back</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
 

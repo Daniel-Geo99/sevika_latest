@@ -185,6 +185,7 @@ function OrgDashboard() {
     <div className="org-container">
       <div className="org-sidebar">
         <h2>Org Dashboard</h2>
+        <button onClick={() => navigate("/")}>🏠 Home</button>
 
         <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
           Dashboard
