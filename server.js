@@ -169,6 +169,12 @@ app.post("/add-donation", authenticateToken, authorizeRole("donor"), (req, res) 
   const { category, gender, age_group, food_type, prepared_date, best_before, pickup_urgency, medicine_name, expiry_date, item_name, organisation_id, pickup_preference, expected_datetime, quantity } = req.body;
   console.log("PAYLOAD RECEIVED (/add-donation):", JSON.stringify(req.body, null, 2));
 
+  // FIX: Validate quantity is a positive integer
+  const finalQuantity = parseInt(quantity, 10);
+  if (!finalQuantity || finalQuantity < 1) {
+    return res.status(400).json({ message: "Quantity must be a positive number" });
+  }
+
   let data = { gender: null, age_group: null, food_type: null, prepared_date: null, best_before: null, pickup_urgency: null, medicine_name: null, expiry_date: null, item_name: null };
   fs.appendFileSync("server_debug.log", `[${new Date().toISOString()}] /add-donation body: ${JSON.stringify(req.body)}\n`);
 
@@ -185,7 +191,6 @@ app.post("/add-donation", authenticateToken, authorizeRole("donor"), (req, res) 
   if (["toiletries", "electricals", "stationary", "others"].includes(category)) { data.item_name = item_name || null; }
 
   const organisation_id_to_use = (category === "food") ? organisation_id : null;
-  const finalQuantity = quantity || 1;
 
   const sql = `INSERT INTO donations (user_id, category, gender, age_group, food_type, prepared_date, best_before, pickup_urgency, medicine_name, expiry_date, item_name, organisation_id, pickup_preference, expected_datetime, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`;
   db.query(sql, [user_id, category, data.gender, data.age_group, data.food_type, data.prepared_date, data.best_before, data.pickup_urgency, data.medicine_name, data.expiry_date, data.item_name, organisation_id_to_use || null, pickup_preference || "pickup", expected_datetime, finalQuantity], (err) => {
@@ -222,8 +227,15 @@ app.post("/add-org-request", authenticateToken, authorizeRole("organisation"), (
   const { category, gender, age_group, subcategory, quantity, urgency } = req.body;
   console.log("PAYLOAD RECEIVED (/add-org-request):", JSON.stringify(req.body, null, 2));
   if (!org_id || !category) return res.status(400).json({ message: "Org ID and category required" });
+
+  // FIX: Validate quantity is a positive integer
+  const finalQuantity = parseInt(quantity, 10);
+  if (!finalQuantity || finalQuantity < 1) {
+    return res.status(400).json({ message: "Quantity must be a positive number" });
+  }
+
   const sql = `INSERT INTO org_needs (org_id, category, subcategory, gender, age_group, quantity, urgency) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  db.query(sql, [org_id, category, subcategory || null, gender || null, age_group || null, quantity || 1, urgency || "Medium"], (err) => {
+  db.query(sql, [org_id, category, subcategory || null, gender || null, age_group || null, finalQuantity, urgency || "Medium"], (err) => {
     if (err) { console.log("add-org-request error", err); return res.status(500).json({ message: "Failed to post request" }); }
     res.json({ message: "Request posted successfully" });
   });
@@ -232,16 +244,52 @@ app.post("/add-org-request", authenticateToken, authorizeRole("organisation"), (
 /* =====================================================
    ORGANISATION DONATION REQUESTS
 ===================================================== */
-app.post("/request-donation", authenticateToken, authorizeRole("organisation"), (req, res) => {
+app.post("/request-donation", authenticateToken, authorizeRole("organisation"), async (req, res) => {
   const org_id = req.user.id;
   const { donation_id, quantity } = req.body;
-  db.query("SELECT * FROM donation_requests WHERE donation_id=? AND org_id=?", [donation_id, org_id], (err, rows) => {
-    if (rows.length > 0) return res.json({ success: false, message: "Already requested" });
-    db.query("INSERT INTO donation_requests (donation_id, org_id, requested_quantity, requested_at) VALUES (?,?,?, NOW())", [donation_id, org_id, quantity || 1], () => {
-      db.query("UPDATE donations SET status='Requested' WHERE donation_id=?", [donation_id]);
-      res.json({ success: true });
-    });
-  });
+
+  // FIX: Validate quantity is a positive integer
+  const requestedQty = parseInt(quantity, 10);
+  if (!requestedQty || requestedQty < 1) {
+    return res.json({ success: false, message: "Requested quantity must be a positive number" });
+  }
+
+  try {
+    // FIX: Check if already requested
+    const [existing] = await db.promise().query(
+      "SELECT * FROM donation_requests WHERE donation_id=? AND org_id=?",
+      [donation_id, org_id]
+    );
+    if (existing.length > 0) return res.json({ success: false, message: "Already requested" });
+
+    // FIX: Check that requested quantity does not exceed available quantity
+    const [donRows] = await db.promise().query(
+      "SELECT quantity, status FROM donations WHERE donation_id=?",
+      [donation_id]
+    );
+    if (donRows.length === 0) return res.json({ success: false, message: "Donation not found" });
+
+    const availableQty = Number(donRows[0].quantity || 0);
+    if (requestedQty > availableQty) {
+      return res.json({
+        success: false,
+        message: `Requested quantity (${requestedQty}) exceeds available quantity (${availableQty}). Please request ${availableQty} or fewer.`
+      });
+    }
+
+    await db.promise().query(
+      "INSERT INTO donation_requests (donation_id, org_id, requested_quantity, requested_at) VALUES (?,?,?, NOW())",
+      [donation_id, org_id, requestedQty]
+    );
+    await db.promise().query(
+      "UPDATE donations SET status='Requested' WHERE donation_id=?",
+      [donation_id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("request-donation error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 });
 
 /* =====================================================
@@ -288,6 +336,8 @@ app.get("/admin/all-requests", authenticateToken, authorizeRole("admin"), async 
 
 /* =====================================================
    ADMIN FULFILL NEED
+   FIX: Block settlement if available qty < needed qty.
+        Do NOT mark as Fulfilled until after qty check passes.
 ===================================================== */
 app.post("/admin/settle-need", authenticateToken, authorizeRole("admin"), async (req, res) => {
   const { id, donation_id } = req.body;
@@ -303,10 +353,13 @@ app.post("/admin/settle-need", authenticateToken, authorizeRole("admin"), async 
     const org_id = need.org_id;
 
     // Verify the donation actually matches the need category
-    const [dCheck] = await db.promise().query("SELECT * FROM donations WHERE donation_id = ? AND category = ?", [donation_id, need.category]);
-    if (dCheck.length === 0) return res.status(400).json({ success: false, message: "Selected donation does not match the need category." });
-
-    await db.promise().query("UPDATE org_needs SET status='Fulfilled' WHERE need_id=?", [id]);
+    const [dCheck] = await db.promise().query(
+      "SELECT * FROM donations WHERE donation_id = ? AND category = ?",
+      [donation_id, need.category]
+    );
+    if (dCheck.length === 0) {
+      return res.status(400).json({ success: false, message: "Selected donation does not match the need category." });
+    }
 
     const [dRows] = await db.promise().query("SELECT * FROM donations WHERE donation_id=?", [donation_id]);
     if (dRows.length === 0) return res.status(500).json({ success: false, message: "Donation not found" });
@@ -315,14 +368,41 @@ app.post("/admin/settle-need", authenticateToken, authorizeRole("admin"), async 
     const need_qty = Number(need.quantity || 1);
     const don_qty = Number(donation.quantity || 0);
 
+    // FIX: Block settlement if available quantity is less than needed quantity
+    if (don_qty < need_qty) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot settle: this donation only has ${don_qty} item(s) available, but ${need_qty} are needed. Please find a donation with sufficient quantity.`
+      });
+    }
+
+    // Only mark as Fulfilled after all checks pass
+    await db.promise().query("UPDATE org_needs SET status='Fulfilled' WHERE need_id=?", [id]);
+
     if (don_qty > need_qty) {
-      await db.promise().query("UPDATE donations SET quantity = quantity - ?, status = 'Pending' WHERE donation_id = ?", [need_qty, donation_id]);
+      // Partial: deduct need_qty from donation, create a settled record for need_qty
+      await db.promise().query(
+        "UPDATE donations SET quantity = quantity - ?, status = 'Pending' WHERE donation_id = ?",
+        [need_qty, donation_id]
+      );
       const insertSql = `INSERT INTO donations (user_id, category, gender, age_group, food_type, prepared_date, best_before, pickup_urgency, medicine_name, expiry_date, item_name, organisation_id, pickup_preference, expected_datetime, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Settled')`;
-      await db.promise().query(insertSql, [donation.user_id, donation.category, donation.gender, donation.age_group, donation.food_type, donation.prepared_date, donation.best_before, donation.pickup_urgency, donation.medicine_name, donation.expiry_date, donation.item_name, org_id, donation.pickup_preference, donation.expected_datetime, need_qty]);
-      res.json({ success: true, message: `Need fulfilled partially. ${need_qty} items settled, ${don_qty - need_qty} remain.` });
+      await db.promise().query(insertSql, [
+        donation.user_id, donation.category, donation.gender, donation.age_group,
+        donation.food_type, donation.prepared_date, donation.best_before, donation.pickup_urgency,
+        donation.medicine_name, donation.expiry_date, donation.item_name, org_id,
+        donation.pickup_preference, donation.expected_datetime, need_qty
+      ]);
+      res.json({
+        success: true,
+        message: `Need fulfilled. ${need_qty} item(s) settled. ${don_qty - need_qty} item(s) remain in inventory.`
+      });
     } else {
-      await db.promise().query("UPDATE donations SET status='Settled', organisation_id=? WHERE donation_id=?", [org_id, donation_id]);
-      res.json({ success: true, message: "Need fulfilled and donation fully settled" });
+      // Exact match: mark the whole donation as settled
+      await db.promise().query(
+        "UPDATE donations SET status='Settled', organisation_id=? WHERE donation_id=?",
+        [org_id, donation_id]
+      );
+      res.json({ success: true, message: "Need fulfilled and donation fully settled." });
     }
   } catch (err) {
     console.error("SETTLE-NEED ERROR:", err);
@@ -331,28 +411,54 @@ app.post("/admin/settle-need", authenticateToken, authorizeRole("admin"), async 
 });
 
 /* =====================================================
-   ADMIN FULFILL DONATION (Partial Support)
+   ADMIN FULFILL DONATION REQUEST
+   FIX: Block settlement if available qty < requested qty.
+        Use >= for partial vs full branching (was strict <).
 ===================================================== */
 app.post("/admin/settledonation", authenticateToken, authorizeRole("admin"), async (req, res) => {
   const { id } = req.body;
   try {
     const [reqRows] = await db.promise().query("SELECT * FROM donation_requests WHERE request_id=?", [id]);
     if (reqRows.length === 0) return res.json({ success: false, message: "Request not found" });
+
     const { donation_id, org_id, requested_quantity } = reqRows[0];
+
     const [donRows] = await db.promise().query("SELECT * FROM donations WHERE donation_id=?", [donation_id]);
     if (donRows.length === 0) return res.json({ success: false, message: "Donation not found" });
+
     const donation = donRows[0];
     const available_quantity = Number(donation.quantity || 0);
     const req_qty = Number(requested_quantity || 0);
 
-    if (req_qty < available_quantity) {
+    // FIX: Block settlement if available quantity is less than requested quantity
+    if (available_quantity < req_qty) {
+      return res.json({
+        success: false,
+        message: `Cannot settle: only ${available_quantity} item(s) available, but ${req_qty} were requested. The organisation should update their request or wait for more donations.`
+      });
+    }
+
+    if (available_quantity > req_qty) {
+      // Partial: fulfil exactly req_qty, leave the rest in inventory
       const insertSql = `INSERT INTO donations (user_id, category, gender, age_group, food_type, prepared_date, best_before, pickup_urgency, medicine_name, expiry_date, item_name, organisation_id, pickup_preference, expected_datetime, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Settled')`;
-      await db.promise().query(insertSql, [donation.user_id, donation.category, donation.gender, donation.age_group, donation.food_type, donation.prepared_date, donation.best_before, donation.pickup_urgency, donation.medicine_name, donation.expiry_date, donation.item_name, org_id, donation.pickup_preference, donation.expected_datetime, req_qty]);
-      await db.promise().query("UPDATE donations SET quantity = quantity - ?, status = 'Pending' WHERE donation_id=?", [req_qty, donation_id]);
+      await db.promise().query(insertSql, [
+        donation.user_id, donation.category, donation.gender, donation.age_group,
+        donation.food_type, donation.prepared_date, donation.best_before, donation.pickup_urgency,
+        donation.medicine_name, donation.expiry_date, donation.item_name, org_id,
+        donation.pickup_preference, donation.expected_datetime, req_qty
+      ]);
+      await db.promise().query(
+        "UPDATE donations SET quantity = quantity - ?, status = 'Pending' WHERE donation_id=?",
+        [req_qty, donation_id]
+      );
       await db.promise().query("DELETE FROM donation_requests WHERE request_id=?", [id]);
-      res.json({ success: true, message: "Partially settled. Remaining quantity is back in inventory." });
+      res.json({ success: true, message: `Partially settled. ${req_qty} item(s) sent to organisation. ${available_quantity - req_qty} item(s) remain in inventory.` });
     } else {
-      await db.promise().query("UPDATE donations SET status='Settled', organisation_id=? WHERE donation_id=?", [org_id, donation_id]);
+      // Exact match: settle the whole donation
+      await db.promise().query(
+        "UPDATE donations SET status='Settled', organisation_id=? WHERE donation_id=?",
+        [org_id, donation_id]
+      );
       await db.promise().query("DELETE FROM donation_requests WHERE request_id=?", [id]);
       res.json({ success: true, message: "Fully settled." });
     }
@@ -363,7 +469,7 @@ app.post("/admin/settledonation", authenticateToken, authorizeRole("admin"), asy
 });
 
 /* =====================================================
-   ADMIN: RECENT (SETTLED) DONATIONS — includes medicine_name
+   ADMIN: RECENT (SETTLED) DONATIONS
 ===================================================== */
 app.get("/admin/recent-donations", authenticateToken, authorizeRole("admin"), async (req, res) => {
   try {
@@ -387,7 +493,7 @@ app.get("/admin/recent-donations", authenticateToken, authorizeRole("admin"), as
 });
 
 /* =====================================================
-   ADMIN: AVAILABLE ITEMS — includes medicine_name
+   ADMIN: AVAILABLE ITEMS
 ===================================================== */
 app.get("/admin/available-items", authenticateToken, authorizeRole("admin"), async (req, res) => {
   try {
@@ -423,7 +529,7 @@ app.get("/admin/organisations", authenticateToken, authorizeRole("admin"), async
 });
 
 /* =====================================================
-   ADMIN: ORG NEEDS — returns subcategory properly
+   ADMIN: ORG NEEDS
 ===================================================== */
 app.get("/admin/org-needs", authenticateToken, authorizeRole("admin"), async (req, res) => {
   try {
@@ -686,10 +792,20 @@ app.post("/api/payment/create", authenticateToken, authorizeRole("donor"), async
   const { organisation_id, amount } = req.body;
   const donor_id = req.user.id;
   if (!organisation_id || !amount) return res.status(400).json({ success: false, message: "Organisation and amount required" });
+
+  // FIX: Validate amount is a positive number
+  const parsedAmount = parseFloat(amount);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ success: false, message: "Amount must be a positive number" });
+  }
+
   try {
     const transaction_id = "TXN" + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
-    await db.promise().query(`INSERT INTO payments (donor_id, organisation_id, amount, transaction_id, status) VALUES (?, ?, ?, ?, 'Success')`, [donor_id, organisation_id, amount, transaction_id]);
-    res.json({ success: true, transaction_id, amount, message: "Payment successful" });
+    await db.promise().query(
+      `INSERT INTO payments (donor_id, organisation_id, amount, transaction_id, status) VALUES (?, ?, ?, ?, 'Success')`,
+      [donor_id, organisation_id, parsedAmount, transaction_id]
+    );
+    res.json({ success: true, transaction_id, amount: parsedAmount, message: "Payment successful" });
   } catch (err) {
     console.error("PAYMENT ERROR:", err);
     res.status(500).json({ success: false, message: "Payment failed" });

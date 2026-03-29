@@ -109,6 +109,21 @@ const AdminDashboard = () => {
   const settleNeed = async (id) => {
     const donationId = selectedMatches[id];
     if (!donationId) { alert("Please select a matching donation from the dropdown first."); return; }
+
+    // FIX: Client-side quantity check before sending to server
+    const need = orgNeeds.find(n => n.id === id);
+    const selectedDonation = available.find(d => d.donation_id == donationId);
+    if (need && selectedDonation) {
+      const needQty = Number(need.quantity || 1);
+      const donQty = Number(selectedDonation.quantity || 0);
+      if (donQty < needQty) {
+        alert(
+          `Cannot settle: the selected donation only has ${donQty} item(s), but this need requires ${needQty}.\n\nPlease select a donation with at least ${needQty} item(s).`
+        );
+        return;
+      }
+    }
+
     try {
       const res = await fetch("https://sevikalatest-production.up.railway.app/admin/settle-need", {
         method: "POST",
@@ -127,17 +142,25 @@ const AdminDashboard = () => {
     } catch { alert("Server error"); }
   };
 
-  const settleDonationRequest = async (id) => {
+  const settleDonationRequest = async (req) => {
+    // FIX: Block settlement if available qty < requested qty
+    if (req.available_quantity < req.requested_quantity) {
+      alert(
+        `Cannot settle: only ${req.available_quantity} item(s) available, but ${req.requested_quantity} were requested.\n\nThe organisation must reduce their request or wait for more donations.`
+      );
+      return;
+    }
+
     try {
       const res = await fetch("https://sevikalatest-production.up.railway.app/admin/settledonation", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: req.id }),
       });
       if (handleAuthError(res)) return;
       const data = await res.json();
-      if (data.success) { alert("Donation request settled successfully"); loadDonationRequests(); loadAvailable(); }
-      else alert("Failed to settle donation request");
+      if (data.success) { alert(data.message || "Donation request settled successfully"); loadDonationRequests(); loadAvailable(); }
+      else alert(data.message || "Failed to settle donation request");
     } catch { alert("Server error"); }
   };
 
@@ -169,6 +192,14 @@ const AdminDashboard = () => {
       }
       return true;
     });
+  };
+
+  // FIX: Helper to check if a selected donation has enough quantity for a need
+  const getSelectedDonationQty = (needId) => {
+    const donationId = selectedMatches[needId];
+    if (!donationId) return null;
+    const donation = available.find(d => d.donation_id == donationId);
+    return donation ? Number(donation.quantity || 0) : null;
   };
 
   const logout = () => { localStorage.clear(); navigate("/"); };
@@ -246,7 +277,7 @@ const AdminDashboard = () => {
         <div className="card">
           <h3>Organization Needs (Posted by Organizations)</h3>
           <p style={{ fontSize: "0.9em", color: "#666", marginBottom: "10px" }}>
-            💡 Matching is based on category + subcategory. Admin can only settle if a matching donation exists.
+            💡 Matching is based on category + subcategory. Settlement is only allowed when the selected donation has enough quantity to meet the full need.
           </p>
           <table>
             <thead>
@@ -258,6 +289,12 @@ const AdminDashboard = () => {
               ) : (
                 orgNeeds.map((need) => {
                   const matches = getMatches(need);
+                  const selectedDonationQty = getSelectedDonationQty(need.id);
+                  const needQty = Number(need.quantity || 1);
+                  // FIX: Only allow settlement if selected donation has enough quantity
+                  const hasEnoughQty = selectedDonationQty !== null && selectedDonationQty >= needQty;
+                  const canSettle = !!selectedMatches[need.id] && hasEnoughQty;
+
                   return (
                     <tr key={need.id}>
                       <td>{need.organisation_name}</td>
@@ -287,9 +324,28 @@ const AdminDashboard = () => {
                               {matches.map(m => (
                                 <option key={m.donation_id} value={m.donation_id}>
                                   {m.donor_name} · {getDonationDetails(m) || m.category} · Qty: {m.quantity}
+                                  {Number(m.quantity) < needQty ? " ⚠️ insufficient" : ""}
                                 </option>
                               ))}
                             </select>
+
+                            {/* FIX: Show quantity warning when selected donation is insufficient */}
+                            {selectedMatches[need.id] && selectedDonationQty !== null && selectedDonationQty < needQty && (
+                              <div style={{
+                                fontSize: "0.8em", color: "#e74c3c",
+                                background: "#fdf0ef", border: "1px solid #f5c6c6",
+                                borderRadius: "4px", padding: "4px 8px"
+                              }}>
+                                ⚠️ This donation only has {selectedDonationQty} item(s). Need requires {needQty}. Select a different donation.
+                              </div>
+                            )}
+
+                            {selectedMatches[need.id] && hasEnoughQty && selectedDonationQty > needQty && (
+                              <div style={{ fontSize: "0.8em", color: "#2980b9" }}>
+                                ℹ️ {needQty} item(s) will be settled. {selectedDonationQty - needQty} item(s) will remain in inventory.
+                              </div>
+                            )}
+
                             {selectedMatches[need.id] && (
                               <div style={{ fontSize: "0.8em", color: "#555" }}>
                                 Donor:{" "}
@@ -303,12 +359,12 @@ const AdminDashboard = () => {
                             )}
                             <button
                               onClick={() => settleNeed(need.id)}
-                              disabled={!selectedMatches[need.id]}
+                              disabled={!canSettle}
                               style={{
-                                background: selectedMatches[need.id] ? "#27ae60" : "#bdc3c7",
+                                background: canSettle ? "#27ae60" : "#bdc3c7",
                                 color: "white", border: "none", padding: "6px 12px",
                                 borderRadius: "4px",
-                                cursor: selectedMatches[need.id] ? "pointer" : "not-allowed",
+                                cursor: canSettle ? "pointer" : "not-allowed",
                                 fontSize: "0.85em"
                               }}
                             >
@@ -341,24 +397,60 @@ const AdminDashboard = () => {
               {donationRequests.length === 0 ? (
                 <tr><td colSpan="8">No donation requests</td></tr>
               ) : (
-                donationRequests.map((req) => (
-                  <tr key={req.id}>
-                    <td>{req.organisation_name}</td>
-                    <td><Link to={`/admin/donor/${req.donor_id}`} style={{ color: "#3498db", textDecoration: "none", fontWeight: "600" }}>{req.donor_name}</Link></td>
-                    <td>{["toiletries","electricals","stationary"].includes(req.category) ? `${req.category} (${req.title || "N/A"})` : req.category}</td>
-                    <td>{req.requested_quantity}</td>
-                    <td><span style={{ color: req.requested_quantity <= req.available_quantity ? "green" : "orange" }}>{req.available_quantity}</span></td>
-                    <td>{req.donation_status}</td>
-                    <td>{req.created_at ? new Date(req.created_at).toLocaleDateString() : "N/A"}</td>
-                    <td>
-                      {req.donation_status === "Settled" || req.donation_status === "Fulfilled" ? (
-                        <span style={{ color: "green" }}>✅ Settled</span>
-                      ) : (
-                        <button onClick={() => settleDonationRequest(req.id)}>Settle</button>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                donationRequests.map((req) => {
+                  // FIX: Determine if settlement is possible
+                  const canSettle = req.available_quantity >= req.requested_quantity;
+                  const alreadySettled = req.donation_status === "Settled" || req.donation_status === "Fulfilled";
+
+                  return (
+                    <tr key={req.id}>
+                      <td>{req.organisation_name}</td>
+                      <td><Link to={`/admin/donor/${req.donor_id}`} style={{ color: "#3498db", textDecoration: "none", fontWeight: "600" }}>{req.donor_name}</Link></td>
+                      <td>{["toiletries","electricals","stationary"].includes(req.category) ? `${req.category} (${req.title || "N/A"})` : req.category}</td>
+                      <td>{req.requested_quantity}</td>
+                      <td>
+                        <span style={{ color: canSettle ? "green" : "#e74c3c", fontWeight: "600" }}>
+                          {req.available_quantity}
+                          {!canSettle && ` (need ${req.requested_quantity})`}
+                        </span>
+                      </td>
+                      <td>{req.donation_status}</td>
+                      <td>{req.created_at ? new Date(req.created_at).toLocaleDateString() : "N/A"}</td>
+                      <td>
+                        {alreadySettled ? (
+                          <span style={{ color: "green" }}>✅ Settled</span>
+                        ) : !canSettle ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <span style={{ fontSize: "0.8em", color: "#e74c3c" }}>
+                              ⚠️ Insufficient qty
+                            </span>
+                            <button
+                              disabled
+                              style={{
+                                background: "#bdc3c7", color: "white", border: "none",
+                                padding: "6px 12px", borderRadius: "4px",
+                                cursor: "not-allowed", fontSize: "0.85em"
+                              }}
+                            >
+                              Cannot Settle
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => settleDonationRequest(req)}
+                            style={{
+                              background: "#27ae60", color: "white", border: "none",
+                              padding: "6px 12px", borderRadius: "4px",
+                              cursor: "pointer", fontSize: "0.85em"
+                            }}
+                          >
+                            Settle
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
