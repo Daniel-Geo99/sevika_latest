@@ -179,15 +179,10 @@ const DonorDashboard = () => {
           <button
             onClick={() => navigate("/payment")}
             style={{
-              padding: "12px 24px",
-              borderRadius: "8px",
+              padding: "12px 24px", borderRadius: "8px",
               background: "linear-gradient(135deg, #1e3a5f, #2d6a9f)",
-              color: "white",
-              border: "none",
-              fontWeight: "600",
-              cursor: "pointer",
-              fontSize: "14px",
-              whiteSpace: "nowrap"
+              color: "white", border: "none", fontWeight: "600",
+              cursor: "pointer", fontSize: "14px", whiteSpace: "nowrap"
             }}
           >
             💝 Make a Donation
@@ -218,6 +213,7 @@ const DonorDashboard = () => {
               <option value="stationary">Stationary</option>
             </select>
 
+            {/* CLOTHES */}
             {category === "clothes" && (
               <>
                 <label>Gender</label>
@@ -237,6 +233,7 @@ const DonorDashboard = () => {
               </>
             )}
 
+            {/* FOOD */}
             {category === "food" && (
               <>
                 <label>Food Type</label>
@@ -260,15 +257,60 @@ const DonorDashboard = () => {
               </>
             )}
 
+            {/* MEDICINE — Predefined subcategories */}
             {category === "medicine" && (
               <>
-                <label>Medicine Name</label>
-                <input type="text" name="medicine_name" onChange={handleChange} required />
+                <label>Medicine Category</label>
+                <select name="medicine_name" onChange={handleChange} required>
+                  <option value="">Select a Category</option>
+                  <optgroup label="Children (0–12 years)">
+                    <option>Children's Fever &amp; Pain Relief</option>
+                    <option>Children's Cough &amp; Cold</option>
+                    <option>Children's Vitamins &amp; Supplements</option>
+                    <option>Children's Allergy Medicine</option>
+                    <option>Children's Digestive Care</option>
+                  </optgroup>
+                  <optgroup label="Teenagers (13–17 years)">
+                    <option>Teenage Acne &amp; Skin Care</option>
+                    <option>Teenage Vitamins &amp; Supplements</option>
+                    <option>Teenage Pain Relief</option>
+                  </optgroup>
+                  <optgroup label="Adults (18–59 years)">
+                    <option>Adult Allergy Medicine</option>
+                    <option>Adult Blood Pressure Medicine</option>
+                    <option>Adult Cough &amp; Cold</option>
+                    <option>Adult Diabetes Medicine</option>
+                    <option>Adult Digestive Care</option>
+                    <option>Adult Eye &amp; Ear Care</option>
+                    <option>Adult Fever &amp; Pain Relief</option>
+                    <option>Adult First Aid Supplies</option>
+                    <option>Adult Skin Care</option>
+                    <option>Adult Vitamins &amp; Supplements</option>
+                  </optgroup>
+                  <optgroup label="Elderly (60+ years)">
+                    <option>Elderly Blood Pressure Medicine</option>
+                    <option>Elderly Bone &amp; Joint Care</option>
+                    <option>Elderly Diabetes Medicine</option>
+                    <option>Elderly Digestive Care</option>
+                    <option>Elderly Eye Care</option>
+                    <option>Elderly Heart Medicine</option>
+                    <option>Elderly Pain Relief</option>
+                    <option>Elderly Vitamins &amp; Supplements</option>
+                  </optgroup>
+                  <optgroup label="General / Any Age">
+                    <option>Antiseptic &amp; Wound Care</option>
+                    <option>Bandages &amp; Dressings</option>
+                    <option>Masks &amp; Sanitizers</option>
+                    <option>ORS &amp; Hydration Salts</option>
+                    <option>Thermometers &amp; Medical Devices</option>
+                  </optgroup>
+                </select>
                 <label>Expiry Date</label>
                 <input type="date" name="expiry_date" onChange={handleChange} required />
               </>
             )}
 
+            {/* TOILETRIES */}
             {category === "toiletries" && (
               <>
                 <label>Type</label>
@@ -281,6 +323,7 @@ const DonorDashboard = () => {
               </>
             )}
 
+            {/* ELECTRICALS */}
             {category === "electricals" && (
               <>
                 <label>Type</label>
@@ -293,6 +336,7 @@ const DonorDashboard = () => {
               </>
             )}
 
+            {/* STATIONARY */}
             {category === "stationary" && (
               <>
                 <label>Type</label>
@@ -309,12 +353,8 @@ const DonorDashboard = () => {
               <>
                 <label>Quantity</label>
                 <input
-                  type="number"
-                  name="quantity"
-                  min="1"
-                  required
-                  placeholder="e.g. 10"
-                  onChange={handleChange}
+                  type="number" name="quantity" min="1" required
+                  placeholder="e.g. 10" onChange={handleChange}
                   value={formData.quantity || ""}
                   style={{ width: "100%", padding: "8px", marginTop: "5px", borderRadius: "5px", border: "1px solid #ddd" }}
                 />
@@ -354,12 +394,10 @@ const DonorDashboard = () => {
                   <option value="Delivery">Delivery</option>
                 </select>
 
-                <label>Expected Date & Time</label>
+                <label>Expected Date &amp; Time</label>
                 <input
-                  type="datetime-local"
-                  name="expected_datetime"
-                  min={getExpectedMin()}
-                  max={getExpectedMax()}
+                  type="datetime-local" name="expected_datetime"
+                  min={getExpectedMin()} max={getExpectedMax()}
                   onChange={handleChange}
                 />
 
@@ -390,7 +428,13 @@ const DonorDashboard = () => {
                 {history.map((d) => (
                   <tr key={d.donation_id}>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
-                    <td>{["toiletries", "electricals", "stationary"].includes(d.category) ? `${d.category} (${d.item_name || "N/A"})` : d.category} ({d.quantity})</td>
+                    <td>
+                      {["toiletries", "electricals", "stationary"].includes(d.category)
+                        ? `${d.category} (${d.item_name || "N/A"})`
+                        : d.category === "medicine"
+                        ? `medicine (${d.medicine_name || "N/A"})`
+                        : d.category} ({d.quantity})
+                    </td>
                     <td>{d.organisation_name || (d.status === "Settled" ? "—" : "Not yet assigned")}</td>
                     <td className={`status-${d.status}`}>{d.status}</td>
                   </tr>

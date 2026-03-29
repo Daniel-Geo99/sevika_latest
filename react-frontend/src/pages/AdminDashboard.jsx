@@ -4,7 +4,6 @@ import "./Admindash.css";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-
   const name = localStorage.getItem("name");
 
   const [recent, setRecent] = useState([]);
@@ -16,10 +15,8 @@ const AdminDashboard = () => {
   const [selectedOrgs, setSelectedOrgs] = useState({});
   const [selectedMatches, setSelectedMatches] = useState({});
 
-  /* ================= HELPER: get fresh token ================= */
   const getToken = () => localStorage.getItem("token");
 
-  /* ================= HELPER: handle auth errors ================= */
   const handleAuthError = (res) => {
     if (res.status === 401 || res.status === 403) {
       localStorage.clear();
@@ -29,16 +26,11 @@ const AdminDashboard = () => {
     return false;
   };
 
-  /* ================= AUTH CHECK ================= */
   useEffect(() => {
     const token = getToken();
     const role = localStorage.getItem("role");
-    if (!token || role !== "admin") {
-      navigate("/login");
-    }
+    if (!token || role !== "admin") navigate("/login");
   }, []);
-
-  /* ================= LOAD DATA ================= */
 
   const loadRecent = async () => {
     try {
@@ -48,9 +40,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setRecent(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load recent donations:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const loadAvailable = async () => {
@@ -61,9 +51,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setAvailable(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load available items:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const loadOrganisations = async () => {
@@ -74,9 +62,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setOrganisations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load organisations:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const loadOrgNeeds = async () => {
@@ -87,9 +73,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setOrgNeeds(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load org needs:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const loadDonationRequests = async () => {
@@ -100,9 +84,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setDonationRequests(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load donation requests:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const loadFoodDonations = async () => {
@@ -113,9 +95,7 @@ const AdminDashboard = () => {
       if (handleAuthError(res)) return;
       const data = await res.json();
       setFoodDonations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load food donations:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   useEffect(() => {
@@ -131,21 +111,12 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  /* ================= ADMIN ACTIONS ================= */
-
   const settleDonation = async (donationId, organisation_id) => {
-    if (!organisation_id) {
-      alert("Please select organisation");
-      return;
-    }
-
+    if (!organisation_id) { alert("Please select organisation"); return; }
     try {
       const res = await fetch("https://sevikalatest-production.up.railway.app/admin/settle-donation", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + getToken()
-        },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() },
         body: JSON.stringify({ donation_id: donationId, organisation_id }),
       });
       if (handleAuthError(res)) return;
@@ -153,21 +124,16 @@ const AdminDashboard = () => {
       alert(data.message);
       loadAvailable();
       loadRecent();
-    } catch {
-      alert("Server error");
-    }
+    } catch { alert("Server error"); }
   };
 
   const settleNeed = async (id) => {
     const donationId = selectedMatches[id];
-    
+    if (!donationId) { alert("Please select a matching donation from the dropdown first."); return; }
     try {
       const res = await fetch("https://sevikalatest-production.up.railway.app/admin/settle-need", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + getToken()
-        },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() },
         body: JSON.stringify({ id, donation_id: donationId }),
       });
       if (handleAuthError(res)) return;
@@ -177,22 +143,18 @@ const AdminDashboard = () => {
         loadOrgNeeds();
         loadAvailable();
         loadRecent();
+        setSelectedMatches(prev => { const n = { ...prev }; delete n[id]; return n; });
       } else {
         alert(data.message || "Failed to settle need");
       }
-    } catch {
-      alert("Server error");
-    }
+    } catch { alert("Server error"); }
   };
 
   const settleDonationRequest = async (id) => {
     try {
       const res = await fetch("https://sevikalatest-production.up.railway.app/admin/settledonation", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + getToken()
-        },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() },
         body: JSON.stringify({ id }),
       });
       if (handleAuthError(res)) return;
@@ -204,15 +166,10 @@ const AdminDashboard = () => {
       } else {
         alert("Failed to settle donation request");
       }
-    } catch {
-      alert("Server error");
-    }
+    } catch { alert("Server error"); }
   };
 
-  const logout = () => {
-    localStorage.clear();
-    navigate("/");
-  };
+  const logout = () => { localStorage.clear(); navigate("/"); };
 
   return (
     <div className="admin-container">
@@ -262,7 +219,13 @@ const AdminDashboard = () => {
                         {d.donor_name}
                       </Link>
                     </td>
-                    <td>{["toiletries","electricals","stationary"].includes(d.category) ? `${d.category} (${d.item_name || "N/A"})` : d.category}</td>
+                    <td>
+                      {d.category === "medicine"
+                        ? `medicine (${d.medicine_name || "N/A"})`
+                        : ["toiletries","electricals","stationary"].includes(d.category)
+                        ? `${d.category} (${d.item_name || "N/A"})`
+                        : d.category}
+                    </td>
                     <td>{d.quantity}</td>
                     <td>{d.organisation_name || "-"}</td>
                     <td>{d.settled_date ? new Date(d.settled_date).toLocaleDateString() : "N/A"}</td>
@@ -281,12 +244,13 @@ const AdminDashboard = () => {
               <tr>
                 <th>Donor</th>
                 <th>Category</th>
+                <th>Details</th>
                 <th>Available Qty</th>
               </tr>
             </thead>
             <tbody>
               {available.length === 0 ? (
-                <tr><td colSpan="3">No pending donations</td></tr>
+                <tr><td colSpan="4">No pending donations</td></tr>
               ) : (
                 available.map((d) => (
                   <tr key={d.donation_id}>
@@ -295,7 +259,12 @@ const AdminDashboard = () => {
                         {d.donor_name}
                       </Link>
                     </td>
-                    <td>{["toiletries","electricals","stationary"].includes(d.category) ? `${d.category} (${d.item_name || "N/A"})` : d.category}</td>
+                    <td>{d.category}</td>
+                    <td style={{ fontSize: "0.85em", color: "#666" }}>
+                      {d.category === "medicine" && d.medicine_name}
+                      {d.category === "clothes" && `${d.gender || ""} ${d.age_group || ""}`}
+                      {["toiletries","electricals","stationary"].includes(d.category) && d.item_name}
+                    </td>
                     <td>{d.quantity}</td>
                   </tr>
                 ))
@@ -308,14 +277,14 @@ const AdminDashboard = () => {
         <div className="card">
           <h3>Organization Needs (Posted by Organizations)</h3>
           <p style={{ fontSize: "0.9em", color: "#666", marginBottom: "10px" }}>
-            💡 Tip: Match these needs with available donations above to settle them
+            💡 Admin can only settle a need if a matching donation exists in Available Items
           </p>
           <table>
             <thead>
               <tr>
                 <th>Organization</th>
                 <th>What They Need</th>
-                <th>Description</th>
+                <th>Qty Needed</th>
                 <th>Urgency</th>
                 <th>Status</th>
                 <th>Posted On</th>
@@ -327,80 +296,81 @@ const AdminDashboard = () => {
                 <tr><td colSpan="7">No organization needs posted</td></tr>
               ) : (
                 orgNeeds.map((need) => {
-                  const matches = available.filter(item => 
-                    item.category === need.category && 
-                    item.quantity >= (need.quantity || 1) && 
-                    (need.category === 'clothes' 
-                      ? (item.gender === need.gender && item.age_group === need.age_group)
-                      : (item.item_name === (need.item_name || null)))
+                  // Match only by category — admin manually picks the donation
+                  const matches = available.filter(item =>
+                    item.category === need.category
                   );
-
-                  const displayCategoryDetails = () => {
-                    if (need.category === 'clothes') {
-                      const g = need.gender || "Any";
-                      const a = need.age_group || "Any";
-                      return `${g} - ${a}`;
-                    }
-                    return need.item_name || "-";
-                  };
 
                   return (
                     <tr key={need.id}>
                       <td>{need.organisation_name}</td>
                       <td>
                         <strong>{need.category}</strong>
-                        <br/>
-                        <span style={{fontSize: '0.85em', color: '#666'}}>
-                          {displayCategoryDetails()}
+                        {need.subcategory && (
+                          <><br /><span style={{ fontSize: "0.85em", color: "#666" }}>{need.subcategory}</span></>
+                        )}
+                      </td>
+                      <td>{need.quantity}</td>
+                      <td>
+                        <span style={{
+                          color: need.urgency === "High" ? "#e74c3c" : need.urgency === "Medium" ? "#f39c12" : "#27ae60",
+                          fontWeight: "600"
+                        }}>
+                          {need.urgency}
                         </span>
                       </td>
-                      <td>Qty: {need.quantity}</td>
-                      <td>{need.urgency}</td>
                       <td>{need.status}</td>
                       <td>{need.created_at ? new Date(need.created_at).toLocaleDateString() : "N/A"}</td>
                       <td>
                         {need.status === "Fulfilled" ? (
                           <span style={{ color: "green" }}>✅ Settled</span>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                            {matches.length > 0 ? (
-                              <>
-                                <select 
-                                  style={{ fontSize: '0.85em' }}
-                                  onChange={(e) => setSelectedMatches({...selectedMatches, [need.id]: e.target.value})}
-                                  value={selectedMatches[need.id] || ""}
+                        ) : matches.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <select
+                              style={{ fontSize: "0.85em", padding: "4px" }}
+                              value={selectedMatches[need.id] || ""}
+                              onChange={(e) => setSelectedMatches({ ...selectedMatches, [need.id]: e.target.value })}
+                            >
+                              <option value="">— Select Donation to Use —</option>
+                              {matches.map(m => (
+                                <option key={m.donation_id} value={m.donation_id}>
+                                  {m.donor_name} · {m.category}
+                                  {m.medicine_name ? ` (${m.medicine_name})` : ""}
+                                  {m.item_name ? ` (${m.item_name})` : ""}
+                                  {m.gender ? ` · ${m.gender}` : ""}
+                                  {m.age_group ? ` ${m.age_group}` : ""}
+                                  · Qty: {m.quantity}
+                                </option>
+                              ))}
+                            </select>
+                            {selectedMatches[need.id] && (
+                              <div style={{ fontSize: "0.8em", color: "#555" }}>
+                                Donor:{" "}
+                                <Link
+                                  to={`/admin/donor/${matches.find(m => m.donation_id == selectedMatches[need.id])?.user_id}`}
+                                  style={{ color: "#3498db", textDecoration: "none", fontWeight: "600" }}
                                 >
-                                  <option value="">-- Match with Item --</option>
-                                  {matches.map(m => (
-                                    <option key={m.donation_id} value={m.donation_id}>
-                                      {m.donor_name}'s {m.item_name || m.category} (Avail: {m.quantity})
-                                    </option>
-                                  ))}
-                                </select>
-                                <button onClick={() => settleNeed(need.id)}>
-                                  Settle with Donation
-                                </button>
-                                {selectedMatches[need.id] && (
-                                  <div style={{ fontSize: '0.8em', marginTop: '5px' }}>
-                                    Selected Donor: 
-                                    <Link 
-                                      to={`/admin/donor/${matches.find(m => m.donation_id == selectedMatches[need.id])?.user_id}`}
-                                      style={{ color: "#3498db", marginLeft: "5px", textDecoration: "none", fontWeight: "600" }}
-                                    >
-                                      {matches.find(m => m.donation_id == selectedMatches[need.id])?.donor_name}
-                                    </Link>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <span style={{fontSize: '0.8em', color: '#888'}}>No matching items (needs {need.quantity})</span>
-                                <button onClick={() => settleNeed(need.id)}>
-                                  Mark as Fulfilled
-                                </button>
-                              </>
+                                  {matches.find(m => m.donation_id == selectedMatches[need.id])?.donor_name}
+                                </Link>
+                              </div>
                             )}
+                            <button
+                              onClick={() => settleNeed(need.id)}
+                              style={{
+                                background: selectedMatches[need.id] ? "#27ae60" : "#bdc3c7",
+                                color: "white", border: "none", padding: "6px 12px",
+                                borderRadius: "4px", cursor: selectedMatches[need.id] ? "pointer" : "not-allowed",
+                                fontSize: "0.85em"
+                              }}
+                              disabled={!selectedMatches[need.id]}
+                            >
+                              ✅ Settle Need
+                            </button>
                           </div>
+                        ) : (
+                          <span style={{ fontSize: "0.82em", color: "#e74c3c" }}>
+                            ❌ No {need.category} donations available
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -415,7 +385,7 @@ const AdminDashboard = () => {
         <div className="card">
           <h3>Donation Requests from Organizations</h3>
           <p style={{ fontSize: "0.9em", color: "#666", marginBottom: "10px" }}>
-            This section shows specific donation requests made by organizations
+            Specific donation requests made by organizations
           </p>
           <table>
             <thead>
@@ -442,12 +412,14 @@ const AdminDashboard = () => {
                         {req.donor_name}
                       </Link>
                     </td>
-                    <td>{["toiletries","electricals","stationary"].includes(req.category) ? `${req.category} (${req.title || "N/A"})` : req.category}</td>
+                    <td>
+                      {["toiletries","electricals","stationary"].includes(req.category)
+                        ? `${req.category} (${req.title || "N/A"})`
+                        : req.category}
+                    </td>
                     <td>{req.requested_quantity}</td>
                     <td>
-                      <span style={{
-                        color: req.requested_quantity <= req.available_quantity ? "green" : "orange"
-                      }}>
+                      <span style={{ color: req.requested_quantity <= req.available_quantity ? "green" : "orange" }}>
                         {req.available_quantity}
                       </span>
                     </td>
@@ -457,9 +429,7 @@ const AdminDashboard = () => {
                       {req.donation_status === "Settled" || req.donation_status === "Fulfilled" ? (
                         <span style={{ color: "green" }}>✅ Settled</span>
                       ) : (
-                        <button onClick={() => settleDonationRequest(req.id)}>
-                          Settle
-                        </button>
+                        <button onClick={() => settleDonationRequest(req.id)}>Settle</button>
                       )}
                     </td>
                   </tr>
@@ -469,12 +439,9 @@ const AdminDashboard = () => {
           </table>
         </div>
 
-        {/* Food Donations Section */}
+        {/* Food Donations */}
         <div className="card">
           <h3>Food Donations</h3>
-          <p style={{ fontSize: "0.9em", color: "#666", marginBottom: "10px" }}>
-            Tracking food donations specifically with donor and organization details
-          </p>
           <table>
             <thead>
               <tr>
@@ -496,7 +463,7 @@ const AdminDashboard = () => {
                       </Link>
                     </td>
                     <td>{fd.quantity}</td>
-                    <td>{fd.organisation_name || "Not Specified / Multiple"}</td>
+                    <td>{fd.organisation_name || "Not Specified"}</td>
                     <td>{fd.created_at ? new Date(fd.created_at).toLocaleDateString() : "N/A"}</td>
                   </tr>
                 ))
