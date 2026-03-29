@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function ForumPage() {
+  const navigate = useNavigate();
 
   const API = "https://sevikalatest-production.up.railway.app/api/forum";
 
@@ -100,11 +102,19 @@ function ForumPage() {
   // ================= VOTING =================
 
   const vote = async (id, voteType) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/register");
+      return;
+    }
 
     try {
 
       const res = await fetch(`${API}/vote/${id}/${voteType}`, {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token
+        }
       });
 
       const data = await res.json();

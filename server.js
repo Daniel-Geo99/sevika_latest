@@ -93,11 +93,11 @@ app.post("/api/forum/create-post", forumLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/forum/vote/:postId/:voteType", (req, res) => {
+app.post("/api/forum/vote/:postId/:voteType", authenticateToken, (req, res) => {
   const { postId, voteType } = req.params;
-  const userIP = req.ip;
+  const userId = req.user.id;
   const sql = `INSERT INTO votes (post_id, user_identifier, vote_type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE vote_type = ?`;
-  db.query(sql, [postId, userIP, voteType, voteType], (err) => {
+  db.query(sql, [postId, userId, voteType, voteType], (err) => {
     if (err) return res.status(500).json({ message: "Database error" });
     res.json({ message: "Vote recorded" });
   });
