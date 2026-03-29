@@ -4,7 +4,6 @@ import "./Donordash.css";
 
 const DonorDashboard = () => {
   const navigate = useNavigate();
-
   const userId = localStorage.getItem("userId");
   const name = localStorage.getItem("name");
 
@@ -18,11 +17,7 @@ const DonorDashboard = () => {
   const getToken = () => localStorage.getItem("token");
 
   const handleAuthError = (res) => {
-    if (res.status === 401 || res.status === 403) {
-      localStorage.clear();
-      navigate("/login");
-      return true;
-    }
+    if (res.status === 401 || res.status === 403) { localStorage.clear(); navigate("/login"); return true; }
     return false;
   };
 
@@ -33,84 +28,57 @@ const DonorDashboard = () => {
   const loadHistory = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(
-        `https://sevikalatest-production.up.railway.app/donor/history`,
-        { headers: { "Authorization": "Bearer " + getToken() } }
-      );
+      const res = await fetch(`https://sevikalatest-production.up.railway.app/donor/history`, { headers: { "Authorization": "Bearer " + getToken() } });
       if (handleAuthError(res)) return;
       const data = await res.json();
       setHistory(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("History load error:", error);
-    }
+    } catch (error) { console.error("History load error:", error); }
   };
 
   const loadNearbyOrgs = async () => {
     if (!userId) return;
     try {
       setLoadingOrgs(true);
-      const res = await fetch(
-        `https://sevikalatest-production.up.railway.app/food/nearby-orgs`,
-        { headers: { "Authorization": "Bearer " + getToken() } }
-      );
+      const res = await fetch(`https://sevikalatest-production.up.railway.app/food/nearby-orgs`, { headers: { "Authorization": "Bearer " + getToken() } });
       if (handleAuthError(res)) return;
       if (!res.ok) throw new Error("Failed to fetch organisations");
       const orgs = await res.json();
       setNearbyOrgs(Array.isArray(orgs) ? orgs : []);
-    } catch (error) {
-      console.error("Nearby orgs error:", error);
-      setNearbyOrgs([]);
-    } finally {
-      setLoadingOrgs(false);
-    }
+    } catch (error) { console.error("Nearby orgs error:", error); setNearbyOrgs([]); }
+    finally { setLoadingOrgs(false); }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!userId) { setSubmitStatus("❌ User not logged in."); return; }
-
     if (category === "food") {
       const { prepared_date, best_before, expected_datetime } = formData;
       if (prepared_date && expected_datetime) {
-        const prepared = new Date(prepared_date).setHours(0, 0, 0, 0);
-        const expected = new Date(expected_datetime).getTime();
-        if (expected < prepared) {
-          setSubmitStatus("❌ Expected date must be after or on prepared date.");
-          return;
+        if (new Date(expected_datetime).getTime() < new Date(prepared_date).setHours(0, 0, 0, 0)) {
+          setSubmitStatus("❌ Expected date must be after or on prepared date."); return;
         }
       }
       if (best_before && expected_datetime) {
-        const best = new Date(best_before).setHours(23, 59, 59, 999);
-        const expected = new Date(expected_datetime).getTime();
-        if (expected > best) {
-          setSubmitStatus("❌ Expected date must be on or before best before date.");
-          return;
+        if (new Date(expected_datetime).getTime() > new Date(best_before).setHours(23, 59, 59, 999)) {
+          setSubmitStatus("❌ Expected date must be on or before best before date."); return;
         }
       }
     }
-
     try {
       setSubmitStatus("Submitting donation...");
       const data = { ...formData, category };
       const res = await fetch("https://sevikalatest-production.up.railway.app/add-donation", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + getToken()
-        },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() },
         body: JSON.stringify(data),
       });
       if (handleAuthError(res)) return;
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || "Donation failed");
       setSubmitStatus("✅ Donation submitted successfully!");
-      setFormData({});
-      setCategory("");
-      setNearbyOrgs([]);
+      setFormData({}); setCategory(""); setNearbyOrgs([]);
       loadHistory();
-    } catch (error) {
-      setSubmitStatus("❌ " + error.message);
-    }
+    } catch (error) { setSubmitStatus("❌ " + error.message); }
   };
 
   const logout = () => { localStorage.clear(); navigate("/"); };
@@ -119,12 +87,10 @@ const DonorDashboard = () => {
     const now = new Date();
     return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   };
-
   const getMinDate = () => {
     const now = new Date();
     return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
-
   const getExpectedMin = () => {
     const todayMin = getMinDateTime();
     if (category === "food" && formData.prepared_date) {
@@ -133,7 +99,6 @@ const DonorDashboard = () => {
     }
     return todayMin;
   };
-
   const getExpectedMax = () => {
     if (category === "food" && formData.best_before) return formData.best_before + "T23:59";
     return undefined;
@@ -142,11 +107,8 @@ const DonorDashboard = () => {
   useEffect(() => {
     const token = getToken();
     const role = localStorage.getItem("role");
-    if (!token || !userId || role !== "donor") {
-      navigate("/login");
-    } else {
-      loadHistory();
-    }
+    if (!token || !userId || role !== "donor") navigate("/login");
+    else loadHistory();
   }, []);
 
   return (
@@ -164,46 +126,29 @@ const DonorDashboard = () => {
 
       <div className="main">
 
-        {/* WELCOME CARD */}
+        {/* WELCOME */}
         <div className="card">
           <h3>Welcome, {name} 👋</h3>
           <p>Donor ID: D{userId}</p>
         </div>
 
-        {/* MONETARY DONATION CARD */}
+        {/* MONETARY DONATION */}
         <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
           <div>
             <h3 style={{ marginBottom: "4px" }}>💝 Monetary Donations</h3>
             <p style={{ color: "#6b7280", fontSize: "14px" }}>Support organisations with a direct monetary donation</p>
           </div>
-          <button
-            onClick={() => navigate("/payment")}
-            style={{
-              padding: "12px 24px", borderRadius: "8px",
-              background: "linear-gradient(135deg, #1e3a5f, #2d6a9f)",
-              color: "white", border: "none", fontWeight: "600",
-              cursor: "pointer", fontSize: "14px", whiteSpace: "nowrap"
-            }}
-          >
+          <button onClick={() => navigate("/payment")} style={{ padding: "12px 24px", borderRadius: "8px", background: "linear-gradient(135deg, #1e3a5f, #2d6a9f)", color: "white", border: "none", fontWeight: "600", cursor: "pointer", fontSize: "14px", whiteSpace: "nowrap" }}>
             💝 Make a Donation
           </button>
         </div>
 
-        {/* ADD DONATION CARD */}
+        {/* ADD DONATION */}
         <div className="card">
           <h3>Add Donation</h3>
           <form onSubmit={handleSubmit}>
             <label>Category</label>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setFormData({});
-                setNearbyOrgs([]);
-                if (e.target.value === "food") setTimeout(() => loadNearbyOrgs(), 0);
-              }}
-              required
-            >
+            <select value={category} onChange={(e) => { setCategory(e.target.value); setFormData({}); setNearbyOrgs([]); if (e.target.value === "food") setTimeout(() => loadNearbyOrgs(), 0); }} required>
               <option value="">Select</option>
               <option value="clothes">Clothes</option>
               <option value="food">Food</option>
@@ -219,16 +164,12 @@ const DonorDashboard = () => {
                 <label>Gender</label>
                 <select name="gender" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Unisex</option>
+                  <option>Male</option><option>Female</option><option>Unisex</option>
                 </select>
                 <label>Age Group</label>
                 <select name="age_group" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Kids</option>
-                  <option>Teens</option>
-                  <option>Adults</option>
+                  <option>Kids</option><option>Teens</option><option>Adults</option>
                 </select>
               </>
             )}
@@ -239,9 +180,7 @@ const DonorDashboard = () => {
                 <label>Food Type</label>
                 <select name="food_type" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Cooked</option>
-                  <option>Packed</option>
-                  <option>Raw</option>
+                  <option>Cooked</option><option>Packed</option><option>Raw</option>
                 </select>
                 <label>Prepared Date</label>
                 <input type="date" name="prepared_date" onChange={handleChange} />
@@ -250,16 +189,25 @@ const DonorDashboard = () => {
                 <label>Pickup Urgency</label>
                 <select name="pickup_urgency" onChange={handleChange}>
                   <option value="">Select</option>
-                  <option>Immediate</option>
-                  <option>Within 2 hours</option>
-                  <option>Today</option>
+                  <option>Immediate</option><option>Within 2 hours</option><option>Today</option>
                 </select>
               </>
             )}
 
-            {/* MEDICINE — Predefined subcategories */}
+            {/* MEDICINE */}
             {category === "medicine" && (
               <>
+                {/* Disclaimer */}
+                <div style={{ background: "#fef9e7", border: "1px solid #f0c040", borderRadius: "8px", padding: "12px 16px", marginBottom: "12px", fontSize: "0.85em" }}>
+                  <strong>📋 Medicine Donation Guidelines:</strong>
+                  <ul style={{ margin: "6px 0 0 16px", padding: 0, lineHeight: "1.7" }}>
+                    <li><strong>1 quantity</strong> = 1 standard pack, strip, or bottle of the selected category</li>
+                    <li>Only donate <strong>unexpired medicines</strong> with at least 3 months remaining</li>
+                    <li>Medicines must be in <strong>original, sealed packaging</strong></li>
+                    <li>Do <strong>not</strong> donate prescription medicines without proper documentation</li>
+                    <li>Select the category that best describes the type of medicine you are donating</li>
+                  </ul>
+                </div>
                 <label>Medicine Category</label>
                 <select name="medicine_name" onChange={handleChange} required>
                   <option value="">Select a Category</option>
@@ -316,9 +264,7 @@ const DonorDashboard = () => {
                 <label>Type</label>
                 <select name="item_name" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Soaps</option>
-                  <option>Shampoo</option>
-                  <option>Sanitary Napkins</option>
+                  <option>Soaps</option><option>Shampoo</option><option>Sanitary Napkins</option>
                 </select>
               </>
             )}
@@ -329,9 +275,7 @@ const DonorDashboard = () => {
                 <label>Type</label>
                 <select name="item_name" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Tubelight</option>
-                  <option>Bulb</option>
-                  <option>Battery</option>
+                  <option>Tubelight</option><option>Bulb</option><option>Battery</option>
                 </select>
               </>
             )}
@@ -342,20 +286,16 @@ const DonorDashboard = () => {
                 <label>Type</label>
                 <select name="item_name" onChange={handleChange} required>
                   <option value="">Select</option>
-                  <option>Pen</option>
-                  <option>Pencils</option>
-                  <option>Scale</option>
+                  <option>Pen</option><option>Pencils</option><option>Scale</option>
                 </select>
               </>
             )}
 
             {category && (
               <>
-                <label>Quantity</label>
-                <input
-                  type="number" name="quantity" min="1" required
-                  placeholder="e.g. 10" onChange={handleChange}
-                  value={formData.quantity || ""}
+                <label>Quantity {category === "medicine" && <span style={{ color: "#e67e22", fontSize: "0.8em" }}>(1 qty = 1 pack/strip/bottle)</span>}</label>
+                <input type="number" name="quantity" min="1" required placeholder="e.g. 10"
+                  onChange={handleChange} value={formData.quantity || ""}
                   style={{ width: "100%", padding: "8px", marginTop: "5px", borderRadius: "5px", border: "1px solid #ddd" }}
                 />
               </>
@@ -366,41 +306,28 @@ const DonorDashboard = () => {
                 {category === "food" && (
                   <>
                     <label>Select Organisation (optional)</label>
-                    {loadingOrgs ? (
-                      <p>Loading organisations...</p>
-                    ) : (
+                    {loadingOrgs ? <p>Loading organisations...</p> : (
                       <>
                         <select name="organisation_id" onChange={handleChange}>
                           <option value="">No preference — let admin assign</option>
                           {nearbyOrgs.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name}{o.distance !== null ? ` (${o.distance.toFixed(2)} km)` : ""}
-                            </option>
+                            <option key={o.id} value={o.id}>{o.name}{o.distance !== null ? ` (${o.distance.toFixed(2)} km)` : ""}</option>
                           ))}
                         </select>
                         {nearbyOrgs.length === 0 && (
-                          <button type="button" className="small-btn" onClick={loadNearbyOrgs}>
-                            📍 Reload Organisations
-                          </button>
+                          <button type="button" className="small-btn" onClick={loadNearbyOrgs}>📍 Reload Organisations</button>
                         )}
                       </>
                     )}
                   </>
                 )}
-
                 <label>Pickup Preference</label>
                 <select name="pickup_preference" onChange={handleChange} required>
                   <option value="Pickup">Pickup</option>
                   <option value="Delivery">Delivery</option>
                 </select>
-
                 <label>Expected Date &amp; Time</label>
-                <input
-                  type="datetime-local" name="expected_datetime"
-                  min={getExpectedMin()} max={getExpectedMax()}
-                  onChange={handleChange}
-                />
-
+                <input type="datetime-local" name="expected_datetime" min={getExpectedMin()} max={getExpectedMax()} onChange={handleChange} />
                 <button type="submit" className="submit">Submit Donation</button>
               </>
             )}
@@ -409,30 +336,23 @@ const DonorDashboard = () => {
           </form>
         </div>
 
-        {/* HISTORY CARD */}
+        {/* HISTORY */}
         <div className="card">
           <h3>Donation History</h3>
-          {history.length === 0 ? (
-            <p>No donations yet.</p>
-          ) : (
+          {history.length === 0 ? <p>No donations yet.</p> : (
             <table>
               <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Charity Given To</th>
-                  <th>Status</th>
-                </tr>
+                <tr><th>Date</th><th>Category</th><th>Charity Given To</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {history.map((d) => (
                   <tr key={d.donation_id}>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
                     <td>
-                      {["toiletries", "electricals", "stationary"].includes(d.category)
-                        ? `${d.category} (${d.item_name || "N/A"})`
-                        : d.category === "medicine"
+                      {d.category === "medicine"
                         ? `medicine (${d.medicine_name || "N/A"})`
+                        : ["toiletries", "electricals", "stationary"].includes(d.category)
+                        ? `${d.category} (${d.item_name || "N/A"})`
                         : d.category} ({d.quantity})
                     </td>
                     <td>{d.organisation_name || (d.status === "Settled" ? "—" : "Not yet assigned")}</td>
