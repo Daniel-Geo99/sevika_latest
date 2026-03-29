@@ -302,7 +302,7 @@ app.post("/request-donation",
       if (rows.length > 0) return res.json({ success:false, message: "Already requested" });
 
       db.query(
-        "INSERT INTO donation_requests (donation_id, org_id, requested_quantity) VALUES (?,?,?)",
+        "INSERT INTO donation_requests (donation_id, org_id, requested_quantity, requested_at) VALUES (?,?,?, NOW())",
         [donation_id, org_id, quantity || 1],
         () => {
           db.query(

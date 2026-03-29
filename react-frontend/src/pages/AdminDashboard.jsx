@@ -265,7 +265,7 @@ const AdminDashboard = () => {
                     <td>{["toiletries","electricals","stationary"].includes(d.category) ? `${d.category} (${d.item_name || "N/A"})` : d.category}</td>
                     <td>{d.quantity}</td>
                     <td>{d.organisation_name || "-"}</td>
-                    <td>{new Date(d.settled_date).toLocaleDateString()}</td>
+                    <td>{d.settled_date ? new Date(d.settled_date).toLocaleDateString() : "N/A"}</td>
                   </tr>
                 ))
               )}
@@ -357,7 +357,7 @@ const AdminDashboard = () => {
                       <td>Qty: {need.quantity}</td>
                       <td>{need.urgency}</td>
                       <td>{need.status}</td>
-                      <td>{new Date(need.created_at).toLocaleDateString()}</td>
+                      <td>{need.created_at ? new Date(need.created_at).toLocaleDateString() : "N/A"}</td>
                       <td>
                         {need.status === "Fulfilled" ? (
                           <span style={{ color: "green" }}>✅ Settled</span>
@@ -452,7 +452,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td>{req.donation_status}</td>
-                    <td>{new Date(req.created_at).toLocaleDateString()}</td>
+                    <td>{req.created_at ? new Date(req.created_at).toLocaleDateString() : "N/A"}</td>
                     <td>
                       {req.donation_status === "Settled" || req.donation_status === "Fulfilled" ? (
                         <span style={{ color: "green" }}>✅ Settled</span>
@@ -497,7 +497,7 @@ const AdminDashboard = () => {
                     </td>
                     <td>{fd.quantity}</td>
                     <td>{fd.organisation_name || "Not Specified / Multiple"}</td>
-                    <td>{new Date(fd.created_at).toLocaleDateString()}</td>
+                    <td>{fd.created_at ? new Date(fd.created_at).toLocaleDateString() : "N/A"}</td>
                   </tr>
                 ))
               )}
